@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Table2, Terminal, Plus, Search, RefreshCw } from 'lucide-react'
+import { Table2, Terminal, Plus, Search, RefreshCw, Workflow } from 'lucide-react'
 import type { Session } from '@renderer/store/workspace'
 import { useWorkspace } from '@renderer/store/workspace'
 import { Select } from '@renderer/components/ui/Select'
@@ -11,6 +11,13 @@ import { EmptyState } from '@renderer/components/ui/EmptyState'
 import { cn } from '@renderer/lib/cn'
 import { TableDataTab } from './TableDataTab'
 import { QueryTab } from './QueryTab'
+import { RelationsView } from './RelationsView'
+
+function tabIcon(kind: string): React.JSX.Element {
+  if (kind === 'query') return <Terminal size={12} />
+  if (kind === 'relations') return <Workflow size={12} />
+  return <Table2 size={12} />
+}
 
 export function RelationalWorkspace({ session }: { session: Session }): React.JSX.Element {
   const sessionId = session.sessionId as string
@@ -19,6 +26,7 @@ export function RelationalWorkspace({ session }: { session: Session }): React.JS
   const setSelectedDatabase = useWorkspace((s) => s.setSelectedDatabase)
   const openTableTab = useWorkspace((s) => s.openTableTab)
   const openQueryTab = useWorkspace((s) => s.openQueryTab)
+  const openRelationsTab = useWorkspace((s) => s.openRelationsTab)
   const setActiveTab = useWorkspace((s) => s.setActiveTab)
   const closeTab = useWorkspace((s) => s.closeTab)
 
@@ -78,7 +86,7 @@ export function RelationalWorkspace({ session }: { session: Session }): React.JS
   const tabItems: TabItem[] = session.tabs.map((t) => ({
     id: t.id,
     title: t.title,
-    icon: t.kind === 'query' ? <Terminal size={12} /> : <Table2 size={12} />
+    icon: tabIcon(t.kind)
   }))
 
   return (
@@ -154,9 +162,14 @@ export function RelationalWorkspace({ session }: { session: Session }): React.JS
           onSelect={(id) => setActiveTab(session.id, id)}
           onClose={(id) => closeTab(session.id, id)}
           trailing={
-            <IconButton label="New query tab" onClick={() => openQueryTab(session.id)}>
-              <Plus size={15} />
-            </IconButton>
+            <div className="flex items-center">
+              <IconButton label="Relation diagram" onClick={() => openRelationsTab(session.id)}>
+                <Workflow size={15} />
+              </IconButton>
+              <IconButton label="New query tab" onClick={() => openQueryTab(session.id)}>
+                <Plus size={15} />
+              </IconButton>
+            </div>
           }
         />
 
@@ -180,6 +193,12 @@ export function RelationalWorkspace({ session }: { session: Session }): React.JS
               key={activeTab.id}
               sessionId={sessionId}
               table={activeTab.table as string}
+              database={isSqlite ? undefined : session.selectedDatabase}
+            />
+          ) : activeTab.kind === 'relations' ? (
+            <RelationsView
+              key={activeTab.id}
+              sessionId={sessionId}
               database={isSqlite ? undefined : session.selectedDatabase}
             />
           ) : (

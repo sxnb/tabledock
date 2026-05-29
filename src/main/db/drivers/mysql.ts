@@ -6,6 +6,10 @@ import type {
   QueryResult,
   RelationalDriver,
   RowsResult,
+  SchemaColumn,
+  SchemaGraph,
+  SchemaRelation,
+  SchemaTable,
   TableMeta,
   UpdateRowParams,
   UpdateRowResult
@@ -134,6 +138,53 @@ export class MySqlDriver implements RelationalDriver {
       values
     )
     return { affectedRows: result.affectedRows }
+  }
+
+  async getSchemaGraph(database?: string): Promise<SchemaGraph> {
+    const target = database || this.config.database
+    if (!target) throw new Error('No database selected')
+
+    const [colRows] = await this.db.query<mysql.RowDataPacket[]>(
+      `SELECT table_name, column_name, data_type, column_key, ordinal_position
+       FROM information_schema.columns
+       WHERE table_schema = ?
+       ORDER BY table_name, ordinal_position`,
+      [target]
+    )
+    const [fkRows] = await this.db.query<mysql.RowDataPacket[]>(
+      `SELECT table_name, column_name, referenced_table_name, referenced_column_name
+       FROM information_schema.key_column_usage
+       WHERE table_schema = ? AND referenced_table_name IS NOT NULL`,
+      [target]
+    )
+
+    const relations: SchemaRelation[] = fkRows.map((r, i) => ({
+      id: `fk-${i}`,
+      sourceTable: String(r.table_name ?? r.TABLE_NAME),
+      sourceColumn: String(r.column_name ?? r.COLUMN_NAME),
+      targetTable: String(r.referenced_table_name ?? r.REFERENCED_TABLE_NAME),
+      targetColumn: String(r.referenced_column_name ?? r.REFERENCED_COLUMN_NAME)
+    }))
+    const fkCols = new Set(relations.map((r) => `${r.sourceTable}.${r.sourceColumn}`))
+
+    const byTable = new Map<string, SchemaColumn[]>()
+    for (const r of colRows) {
+      const table = String(r.table_name ?? r.TABLE_NAME)
+      const name = String(r.column_name ?? r.COLUMN_NAME)
+      const list = byTable.get(table) ?? []
+      list.push({
+        name,
+        dataType: String(r.data_type ?? r.DATA_TYPE).toLowerCase(),
+        isPrimaryKey: String(r.column_key ?? r.COLUMN_KEY) === 'PRI',
+        isForeignKey: fkCols.has(`${table}.${name}`)
+      })
+      byTable.set(table, list)
+    }
+    const tables: SchemaTable[] = [...byTable.entries()].map(([name, columns]) => ({
+      name,
+      columns
+    }))
+    return { tables, relations }
   }
 
   async runQuery(sql: string, database?: string): Promise<QueryResult> {

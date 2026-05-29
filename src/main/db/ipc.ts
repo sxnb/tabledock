@@ -55,6 +55,9 @@ export function registerDbIpc(): void {
   handle('db:update', (sessionId: string, table: string, params: UpdateRowParams) =>
     relational(sessionId).updateRow(table, params)
   )
+  handle('db:schemaGraph', (sessionId: string, database?: string) =>
+    relational(sessionId).getSchemaGraph(database)
+  )
   handle('db:query', (sessionId: string, sql: string, database?: string) =>
     relational(sessionId).runQuery(sql, database)
   )

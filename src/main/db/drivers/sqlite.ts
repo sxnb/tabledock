@@ -7,6 +7,10 @@ import type {
   QueryResult,
   RelationalDriver,
   RowsResult,
+  SchemaColumn,
+  SchemaGraph,
+  SchemaRelation,
+  SchemaTable,
   TableMeta,
   UpdateRowParams,
   UpdateRowResult
@@ -111,6 +115,67 @@ export class SqliteDriver implements RelationalDriver {
     )
     const info = stmt.run(...(values as never[]))
     return { affectedRows: info.changes }
+  }
+
+  async getSchemaGraph(): Promise<SchemaGraph> {
+    const tableNames = (
+      this.handle
+        .prepare(
+          `SELECT name FROM sqlite_master
+           WHERE type = 'table' AND name NOT LIKE 'sqlite_%'
+           ORDER BY name`
+        )
+        .all() as { name: string }[]
+    ).map((r) => r.name)
+
+    const relations: SchemaRelation[] = []
+    const fkCols = new Set<string>()
+    let fkIndex = 0
+
+    const tables: SchemaTable[] = tableNames.map((table) => {
+      const fks = this.handle.prepare(`PRAGMA foreign_key_list(${quoteIdent(table)})`).all() as {
+        table: string
+        from: string
+        to: string | null
+      }[]
+      for (const fk of fks) {
+        fkCols.add(`${table}.${fk.from}`)
+        relations.push({
+          id: `fk-${fkIndex++}`,
+          sourceTable: table,
+          sourceColumn: fk.from,
+          targetTable: fk.table,
+          // `to` is null when the FK references the target's primary key implicitly.
+          targetColumn: fk.to ?? 'rowid'
+        })
+      }
+
+      const info = this.handle.prepare(`PRAGMA table_info(${quoteIdent(table)})`).all() as {
+        name: string
+        type: string
+        pk: number
+      }[]
+      const columns: SchemaColumn[] = info.map((c) => ({
+        name: c.name,
+        dataType: (c.type || '').toLowerCase(),
+        isPrimaryKey: c.pk > 0,
+        isForeignKey: fkCols.has(`${table}.${c.name}`)
+      }))
+      return { name: table, columns }
+    })
+
+    // Resolve implicit PK targets (`to` was null) to the referenced table's PK.
+    const pkByTable = new Map<string, string | undefined>()
+    for (const t of tables) {
+      pkByTable.set(t.name, t.columns.find((c) => c.isPrimaryKey)?.name)
+    }
+    for (const rel of relations) {
+      if (rel.targetColumn === 'rowid') {
+        rel.targetColumn = pkByTable.get(rel.targetTable) ?? 'rowid'
+      }
+    }
+
+    return { tables, relations }
   }
 
   async runQuery(sql: string): Promise<QueryResult> {

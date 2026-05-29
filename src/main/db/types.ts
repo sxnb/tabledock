@@ -5,6 +5,7 @@ import type {
   RedisScanResult,
   RedisValue,
   RowsResult,
+  SchemaGraph,
   TableMeta,
   UpdateRowParams,
   UpdateRowResult
@@ -22,6 +23,7 @@ export interface RelationalDriver {
   getRows(table: string, opts: GetRowsOptions): Promise<RowsResult>
   getTableMeta(table: string, database?: string): Promise<TableMeta>
   updateRow(table: string, params: UpdateRowParams): Promise<UpdateRowResult>
+  getSchemaGraph(database?: string): Promise<SchemaGraph>
   runQuery(sql: string, database?: string): Promise<QueryResult>
 }
 

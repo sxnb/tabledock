@@ -9,6 +9,7 @@ import type {
   RedisScanResult,
   RedisValue,
   RowsResult,
+  SchemaGraph,
   TableMeta,
   UpdateRowParams,
   UpdateRowResult
@@ -40,6 +41,8 @@ const api: DataDockApi = {
       invoke('db:tableMeta', sessionId, table, database),
     update: (sessionId: string, table: string, params: UpdateRowParams): Promise<UpdateRowResult> =>
       invoke('db:update', sessionId, table, params),
+    schemaGraph: (sessionId: string, database?: string): Promise<SchemaGraph> =>
+      invoke('db:schemaGraph', sessionId, database),
     query: (sessionId: string, sql: string, database?: string): Promise<QueryResult> =>
       invoke('db:query', sessionId, sql, database)
   },

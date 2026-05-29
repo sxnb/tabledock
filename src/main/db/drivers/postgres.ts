@@ -6,6 +6,10 @@ import type {
   QueryResult,
   RelationalDriver,
   RowsResult,
+  SchemaColumn,
+  SchemaGraph,
+  SchemaRelation,
+  SchemaTable,
   TableMeta,
   UpdateRowParams,
   UpdateRowResult
@@ -192,6 +196,87 @@ export class PostgresDriver implements RelationalDriver {
       values
     )
     return { affectedRows: res.rowCount ?? 0 }
+  }
+
+  async getSchemaGraph(database?: string): Promise<SchemaGraph> {
+    const pool = await this.poolFor(database || this.currentDatabase)
+
+    const tablesRes = await pool.query<{ table_name: string }>(
+      `SELECT table_name FROM information_schema.tables
+       WHERE table_schema = 'public' AND table_type = 'BASE TABLE'`
+    )
+    const tableNames = new Set(tablesRes.rows.map((r) => r.table_name))
+
+    const colsRes = await pool.query<{
+      table_name: string
+      column_name: string
+      data_type: string
+    }>(
+      `SELECT table_name, column_name, data_type
+       FROM information_schema.columns
+       WHERE table_schema = 'public'
+       ORDER BY table_name, ordinal_position`
+    )
+
+    const pkRes = await pool.query<{ table_name: string; column_name: string }>(
+      `SELECT src.relname AS table_name, sa.attname AS column_name
+       FROM pg_constraint con
+       JOIN pg_namespace ns ON ns.oid = con.connamespace AND ns.nspname = 'public'
+       JOIN pg_class src ON src.oid = con.conrelid
+       JOIN LATERAL unnest(con.conkey) AS ck(attnum) ON true
+       JOIN pg_attribute sa ON sa.attrelid = con.conrelid AND sa.attnum = ck.attnum
+       WHERE con.contype = 'p'`
+    )
+    const pkSet = new Set(pkRes.rows.map((r) => `${r.table_name}.${r.column_name}`))
+
+    const fkRes = await pool.query<{
+      source_table: string
+      source_column: string
+      target_table: string
+      target_column: string
+    }>(
+      `SELECT src.relname AS source_table,
+              sa.attname  AS source_column,
+              tgt.relname AS target_table,
+              ta.attname  AS target_column
+       FROM pg_constraint con
+       JOIN pg_namespace ns ON ns.oid = con.connamespace AND ns.nspname = 'public'
+       JOIN pg_class src ON src.oid = con.conrelid
+       JOIN pg_class tgt ON tgt.oid = con.confrelid
+       JOIN LATERAL unnest(con.conkey, con.confkey) WITH ORDINALITY AS u(src_attnum, tgt_attnum, ord)
+         ON true
+       JOIN pg_attribute sa ON sa.attrelid = con.conrelid AND sa.attnum = u.src_attnum
+       JOIN pg_attribute ta ON ta.attrelid = con.confrelid AND ta.attnum = u.tgt_attnum
+       WHERE con.contype = 'f'
+       ORDER BY con.conname, u.ord`
+    )
+
+    const relations: SchemaRelation[] = fkRes.rows.map((r, i) => ({
+      id: `fk-${i}`,
+      sourceTable: r.source_table,
+      sourceColumn: r.source_column,
+      targetTable: r.target_table,
+      targetColumn: r.target_column
+    }))
+    const fkCols = new Set(relations.map((r) => `${r.sourceTable}.${r.sourceColumn}`))
+
+    const byTable = new Map<string, SchemaColumn[]>()
+    for (const c of colsRes.rows) {
+      if (!tableNames.has(c.table_name)) continue
+      const list = byTable.get(c.table_name) ?? []
+      list.push({
+        name: c.column_name,
+        dataType: c.data_type.toLowerCase(),
+        isPrimaryKey: pkSet.has(`${c.table_name}.${c.column_name}`),
+        isForeignKey: fkCols.has(`${c.table_name}.${c.column_name}`)
+      })
+      byTable.set(c.table_name, list)
+    }
+    const tables: SchemaTable[] = [...byTable.entries()].map(([name, columns]) => ({
+      name,
+      columns
+    }))
+    return { tables, relations }
   }
 
   async runQuery(sql: string, database?: string): Promise<QueryResult> {

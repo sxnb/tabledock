@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { ConnectionConfig } from '@shared/types'
 
-export type TabKind = 'table' | 'query' | 'redis-cmd'
+export type TabKind = 'table' | 'query' | 'relations' | 'redis-cmd'
 
 export interface Tab {
   id: string
@@ -37,6 +37,7 @@ interface WorkspaceState {
   setSelectedDatabase: (id: string, database: string) => void
   openTableTab: (id: string, table: string) => void
   openQueryTab: (id: string) => void
+  openRelationsTab: (id: string) => void
   setActiveTab: (id: string, tabId: string) => void
   closeTab: (id: string, tabId: string) => void
 }
@@ -131,6 +132,14 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
         kind: 'query',
         title: count === 0 ? 'Query' : `Query ${count + 1}`
       }
+      return { ...s, tabs: [...s.tabs, tab], activeTabId: tab.id }
+    }),
+
+  openRelationsTab: (id) =>
+    patchSession(set, id, (s) => {
+      const existing = s.tabs.find((t) => t.kind === 'relations')
+      if (existing) return { ...s, activeTabId: existing.id }
+      const tab: Tab = { id: uid(), kind: 'relations', title: 'Relations' }
       return { ...s, tabs: [...s.tabs, tab], activeTabId: tab.id }
     }),
 

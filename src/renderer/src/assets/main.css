@@ -83,3 +83,23 @@
 .dd-glow {
   background: radial-gradient(600px circle at 50% 30%, rgba(139, 123, 255, 0.12), transparent 60%);
 }
+
+/* ── React Flow dark theming (relation diagram) ─────────────────────────── */
+/* Theme via xyflow's own CSS variables so they win regardless of the order in
+   which React Flow's stylesheet is injected relative to this file. */
+.react-flow {
+  --xy-controls-button-background-color: var(--color-surface-2);
+  --xy-controls-button-background-color-hover: var(--color-surface-3);
+  --xy-controls-button-color: var(--color-muted);
+  --xy-controls-button-color-hover: var(--color-text);
+  --xy-controls-button-border-color: var(--color-border);
+}
+.react-flow__controls {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+.react-flow__edge-path {
+  stroke-linecap: round;
+}

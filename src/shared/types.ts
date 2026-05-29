@@ -66,6 +66,34 @@ export interface UpdateRowResult {
   affectedRows: number
 }
 
+/** A column as shown in the relation diagram. */
+export interface SchemaColumn {
+  name: string
+  dataType: string
+  isPrimaryKey: boolean
+  isForeignKey: boolean
+}
+
+export interface SchemaTable {
+  name: string
+  columns: SchemaColumn[]
+}
+
+/** A single foreign-key edge (one column pair). */
+export interface SchemaRelation {
+  id: string
+  sourceTable: string
+  sourceColumn: string
+  targetTable: string
+  targetColumn: string
+}
+
+/** The full table/foreign-key graph for a database, used by the relation view. */
+export interface SchemaGraph {
+  tables: SchemaTable[]
+  relations: SchemaRelation[]
+}
+
 export interface RedisKeyInfo {
   key: string
   type: string
@@ -100,6 +128,7 @@ export interface DataDockApi {
     rows(sessionId: string, table: string, opts: GetRowsOptions): Promise<RowsResult>
     tableMeta(sessionId: string, table: string, database?: string): Promise<TableMeta>
     update(sessionId: string, table: string, params: UpdateRowParams): Promise<UpdateRowResult>
+    schemaGraph(sessionId: string, database?: string): Promise<SchemaGraph>
     query(sessionId: string, sql: string, database?: string): Promise<QueryResult>
   }
   redis: {
