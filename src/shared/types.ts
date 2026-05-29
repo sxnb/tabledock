@@ -38,6 +38,34 @@ export interface GetRowsOptions {
   database?: string
 }
 
+export interface ColumnMeta {
+  name: string
+  /** Normalized data type, e.g. 'int', 'varchar', 'enum', 'boolean'. */
+  dataType: string
+  nullable: boolean
+  isPrimaryKey: boolean
+  /** Allowed values for enum-like columns (rendered as a dropdown). */
+  enumValues?: string[]
+}
+
+export interface TableMeta {
+  columns: ColumnMeta[]
+  /** Primary-key column names; empty when the table has none. */
+  primaryKeys: string[]
+}
+
+export interface UpdateRowParams {
+  database?: string
+  /** Original primary-key column → value, used to locate the row. */
+  pk: Record<string, unknown>
+  /** Column → new value to assign. */
+  changes: Record<string, unknown>
+}
+
+export interface UpdateRowResult {
+  affectedRows: number
+}
+
 export interface RedisKeyInfo {
   key: string
   type: string
@@ -70,6 +98,8 @@ export interface DataDockApi {
     databases(sessionId: string): Promise<string[]>
     tables(sessionId: string, database?: string): Promise<string[]>
     rows(sessionId: string, table: string, opts: GetRowsOptions): Promise<RowsResult>
+    tableMeta(sessionId: string, table: string, database?: string): Promise<TableMeta>
+    update(sessionId: string, table: string, params: UpdateRowParams): Promise<UpdateRowResult>
     query(sessionId: string, sql: string, database?: string): Promise<QueryResult>
   }
   redis: {

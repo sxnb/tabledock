@@ -1,10 +1,14 @@
 import mysql from 'mysql2/promise'
 import type {
+  ColumnMeta,
   ConnectionConfig,
   GetRowsOptions,
   QueryResult,
   RelationalDriver,
-  RowsResult
+  RowsResult,
+  TableMeta,
+  UpdateRowParams,
+  UpdateRowResult
 } from '../types'
 
 const SYSTEM_DATABASES = new Set(['information_schema', 'mysql', 'performance_schema', 'sys'])
@@ -90,6 +94,48 @@ export class MySqlDriver implements RelationalDriver {
     }
   }
 
+  async getTableMeta(table: string, database?: string): Promise<TableMeta> {
+    const target = database || this.config.database
+    if (!target) throw new Error('No database selected')
+    const [rows] = await this.db.query<mysql.RowDataPacket[]>(
+      `SELECT column_name, data_type, column_type, is_nullable, column_key
+       FROM information_schema.columns
+       WHERE table_schema = ? AND table_name = ?
+       ORDER BY ordinal_position`,
+      [target, table]
+    )
+    const columns: ColumnMeta[] = rows.map((r) => {
+      const name = String(r.column_name ?? r.COLUMN_NAME)
+      const dataType = String(r.data_type ?? r.DATA_TYPE).toLowerCase()
+      const columnType = String(r.column_type ?? r.COLUMN_TYPE)
+      const key = String(r.column_key ?? r.COLUMN_KEY)
+      const nullable = String(r.is_nullable ?? r.IS_NULLABLE).toUpperCase() === 'YES'
+      const meta: ColumnMeta = { name, dataType, nullable, isPrimaryKey: key === 'PRI' }
+      if (dataType === 'enum') meta.enumValues = parseEnumValues(columnType)
+      return meta
+    })
+    return { columns, primaryKeys: columns.filter((c) => c.isPrimaryKey).map((c) => c.name) }
+  }
+
+  async updateRow(table: string, params: UpdateRowParams): Promise<UpdateRowResult> {
+    const { database, pk, changes } = params
+    const changeCols = Object.keys(changes)
+    const pkCols = Object.keys(pk)
+    if (changeCols.length === 0) return { affectedRows: 0 }
+    if (pkCols.length === 0) throw new Error('Cannot update a row without a primary key')
+
+    const qualified = database ? `${quoteIdent(database)}.${quoteIdent(table)}` : quoteIdent(table)
+    const setClause = changeCols.map((c) => `${quoteIdent(c)} = ?`).join(', ')
+    const whereClause = pkCols.map((c) => `${quoteIdent(c)} = ?`).join(' AND ')
+    const values = [...changeCols.map((c) => changes[c]), ...pkCols.map((c) => pk[c])]
+
+    const [result] = await this.db.query<mysql.ResultSetHeader>(
+      `UPDATE ${qualified} SET ${setClause} WHERE ${whereClause} LIMIT 1`,
+      values
+    )
+    return { affectedRows: result.affectedRows }
+  }
+
   async runQuery(sql: string, database?: string): Promise<QueryResult> {
     const conn = await this.db.getConnection()
     try {
@@ -110,6 +156,13 @@ export class MySqlDriver implements RelationalDriver {
       conn.release()
     }
   }
+}
+
+/** Parse a MySQL `enum('a','b','c')` column type into its allowed values. */
+function parseEnumValues(columnType: string): string[] {
+  const inner = columnType.replace(/^enum\(/i, '').replace(/\)$/, '')
+  const matches = inner.match(/'((?:[^']|'')*)'/g) ?? []
+  return matches.map((m) => m.slice(1, -1).replace(/''/g, "'"))
 }
 
 /** mysql2 returns Buffers/Dates that don't serialize cleanly over IPC. */

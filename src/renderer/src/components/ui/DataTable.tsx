@@ -1,18 +1,117 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { X, Check, AlertTriangle } from 'lucide-react'
+import type { ColumnMeta } from '@shared/types'
 import { formatCell } from '@renderer/lib/format'
 import { cn } from '@renderer/lib/cn'
+import { Button } from './Button'
+import { Spinner } from './Spinner'
+
+export interface DataTableEditing {
+  columnsMeta: ColumnMeta[]
+  primaryKeys: string[]
+  /** Persist a single cell change; should throw on failure. */
+  onApply: (rowIndex: number, column: string, value: unknown) => Promise<void>
+}
 
 interface DataTableProps {
   columns: string[]
   rows: unknown[][]
   /** Optional empty-state message when there are zero rows. */
   emptyMessage?: string
+  /** When provided (and the table has a primary key), cells become editable. */
+  editing?: DataTableEditing
+}
+
+interface EditState {
+  rowIndex: number
+  colIndex: number
+  column: string
+  draft: string
+}
+
+type InputKind = 'text' | 'number' | 'boolean' | 'enum'
+
+function inputKind(meta: ColumnMeta | undefined): InputKind {
+  if (!meta) return 'text'
+  if (meta.enumValues && meta.enumValues.length > 0) return 'enum'
+  if (/^bool/.test(meta.dataType)) return 'boolean'
+  if (/(int|numeric|decimal|real|double|float|serial|money)/.test(meta.dataType)) return 'number'
+  return 'text'
+}
+
+/** Convert the string draft into the typed value to send to the backend. */
+function toTypedValue(meta: ColumnMeta | undefined, draft: string): unknown {
+  const kind = inputKind(meta)
+  if (kind === 'number') return draft === '' ? null : Number(draft)
+  if (kind === 'boolean') return draft === '' ? null : draft === 'true'
+  if (kind === 'enum') return draft === '' ? null : draft
+  return draft
 }
 
 /**
  * A lightweight, sleek result grid: sticky header, monospace cells, NULLs
- * rendered faint. The container scrolls in both directions.
+ * rendered faint. When `editing` is supplied and the table has a primary key,
+ * double-clicking a cell turns it into an inline editor with an apply/cancel
+ * footer; clicking anywhere outside the cell or footer cancels.
  */
-export function DataTable({ columns, rows, emptyMessage }: DataTableProps): React.JSX.Element {
+export function DataTable({
+  columns,
+  rows,
+  emptyMessage,
+  editing
+}: DataTableProps): React.JSX.Element {
+  const [edit, setEdit] = useState<EditState | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const cellRef = useRef<HTMLTableCellElement>(null)
+  const footerRef = useRef<HTMLDivElement>(null)
+
+  const metaByName = useMemo(() => {
+    const map = new Map<string, ColumnMeta>()
+    editing?.columnsMeta.forEach((m) => map.set(m.name, m))
+    return map
+  }, [editing])
+
+  const editable = Boolean(editing) && (editing?.primaryKeys.length ?? 0) > 0
+
+  const cancel = (): void => {
+    setEdit(null)
+    setError(null)
+  }
+
+  // Clicking outside the editing cell or the footer cancels edit mode.
+  useEffect(() => {
+    if (!edit) return
+    const onDown = (e: MouseEvent): void => {
+      const target = e.target as Node
+      if (cellRef.current?.contains(target) || footerRef.current?.contains(target)) return
+      cancel()
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [edit])
+
+  const startEdit = (rowIndex: number, colIndex: number, column: string, cell: unknown): void => {
+    if (!editable || saving) return
+    setError(null)
+    setEdit({ rowIndex, colIndex, column, draft: cell == null ? '' : String(cell) })
+  }
+
+  const apply = async (): Promise<void> => {
+    if (!edit || !editing) return
+    const value = toTypedValue(metaByName.get(edit.column), edit.draft)
+    setSaving(true)
+    setError(null)
+    try {
+      await editing.onApply(edit.rowIndex, edit.column, value)
+      setEdit(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setSaving(false)
+    }
+  }
+
   if (columns.length === 0) {
     return (
       <div className="flex h-full items-center justify-center text-xs text-muted">
@@ -22,53 +121,173 @@ export function DataTable({ columns, rows, emptyMessage }: DataTableProps): Reac
   }
 
   return (
-    <div className="h-full overflow-auto">
-      <table className="w-full border-collapse text-left font-mono text-xs">
-        <thead className="sticky top-0 z-10">
-          <tr>
-            <th className="sticky left-0 z-20 w-12 border-b border-r border-border bg-surface-3 px-2 py-1.5 text-right font-medium text-faint">
-              #
-            </th>
-            {columns.map((col, i) => (
-              <th
-                key={i}
-                className="whitespace-nowrap border-b border-r border-border bg-surface-3 px-3 py-1.5 font-semibold text-muted"
-              >
-                {col}
+    <div className="flex h-full flex-col">
+      <div className="min-h-0 flex-1 overflow-auto">
+        <table className="w-full border-collapse text-left font-mono text-xs">
+          <thead className="sticky top-0 z-10">
+            <tr>
+              <th className="sticky left-0 z-20 w-12 border-b border-r border-border bg-surface-3 px-2 py-1.5 text-right font-medium text-faint">
+                #
               </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, ri) => (
-            <tr key={ri} className="hover:bg-surface-2/60">
-              <td className="sticky left-0 w-12 border-b border-r border-border bg-surface px-2 py-1.5 text-right text-faint">
-                {ri + 1}
-              </td>
-              {row.map((cell, ci) => {
-                const { text, kind } = formatCell(cell)
-                return (
-                  <td
-                    key={ci}
-                    title={text}
-                    className={cn(
-                      'max-w-[420px] truncate border-b border-r border-border px-3 py-1.5',
-                      kind === 'null' ? 'italic text-faint' : 'text-text'
-                    )}
-                  >
-                    {text}
-                  </td>
-                )
-              })}
+              {columns.map((col, i) => (
+                <th
+                  key={i}
+                  className="whitespace-nowrap border-b border-r border-border bg-surface-3 px-3 py-1.5 font-semibold text-muted"
+                >
+                  {col}
+                  {metaByName.get(col)?.isPrimaryKey && (
+                    <span className="ml-1 text-[9px] text-accent">PK</span>
+                  )}
+                </th>
+              ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
-      {rows.length === 0 && (
-        <div className="flex items-center justify-center py-10 text-xs text-muted">
-          {emptyMessage ?? 'No rows'}
+          </thead>
+          <tbody>
+            {rows.map((row, ri) => {
+              const rowEditing = edit?.rowIndex === ri
+              return (
+                <tr
+                  key={ri}
+                  className={cn(rowEditing ? 'bg-accent-soft/60' : 'hover:bg-surface-2/60')}
+                >
+                  <td className="sticky left-0 w-12 border-b border-r border-border bg-surface px-2 py-1.5 text-right text-faint">
+                    {ri + 1}
+                  </td>
+                  {row.map((cell, ci) => {
+                    const column = columns[ci]
+                    const isEditingCell = rowEditing && edit?.colIndex === ci
+                    if (isEditingCell) {
+                      return (
+                        <td
+                          key={ci}
+                          ref={cellRef}
+                          className="border-b border-r border-accent bg-surface p-0"
+                        >
+                          <CellEditor
+                            meta={metaByName.get(column)}
+                            value={edit.draft}
+                            onChange={(draft) => setEdit((e) => (e ? { ...e, draft } : e))}
+                            onCommit={apply}
+                            onCancel={cancel}
+                          />
+                        </td>
+                      )
+                    }
+                    const { text, kind } = formatCell(cell)
+                    return (
+                      <td
+                        key={ci}
+                        title={text}
+                        onDoubleClick={() => startEdit(ri, ci, column, cell)}
+                        className={cn(
+                          'max-w-[420px] truncate border-b border-r border-border px-3 py-1.5',
+                          editable && 'cursor-text',
+                          kind === 'null' ? 'italic text-faint' : 'text-text'
+                        )}
+                      >
+                        {text}
+                      </td>
+                    )
+                  })}
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+        {rows.length === 0 && (
+          <div className="flex items-center justify-center py-10 text-xs text-muted">
+            {emptyMessage ?? 'No rows'}
+          </div>
+        )}
+      </div>
+
+      {edit && (
+        <div
+          ref={footerRef}
+          className="flex shrink-0 items-center gap-3 border-t border-border bg-surface px-3 py-2"
+        >
+          <span className="text-xs text-muted">
+            Editing <span className="font-mono text-text">{edit.column}</span>
+          </span>
+          {error && (
+            <span className="flex items-center gap-1.5 truncate text-xs text-danger" title={error}>
+              <AlertTriangle size={13} />
+              <span className="max-w-[360px] truncate">{error}</span>
+            </span>
+          )}
+          <div className="flex-1" />
+          <Button variant="secondary" size="sm" onClick={cancel} disabled={saving}>
+            <X size={13} />
+            Cancel
+          </Button>
+          <Button variant="primary" size="sm" onClick={apply} disabled={saving}>
+            {saving ? <Spinner size={13} className="text-white" /> : <Check size={13} />}
+            Apply changes
+          </Button>
         </div>
       )}
     </div>
+  )
+}
+
+interface CellEditorProps {
+  meta: ColumnMeta | undefined
+  value: string
+  onChange: (value: string) => void
+  onCommit: () => void
+  onCancel: () => void
+}
+
+function CellEditor({
+  meta,
+  value,
+  onChange,
+  onCommit,
+  onCancel
+}: CellEditorProps): React.JSX.Element {
+  const kind = inputKind(meta)
+  const onKeyDown = (e: React.KeyboardEvent): void => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      onCommit()
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      onCancel()
+    }
+  }
+
+  const className =
+    'h-full w-full bg-transparent px-3 py-1.5 font-mono text-xs text-text focus:outline-none'
+
+  if (kind === 'enum' || kind === 'boolean') {
+    const options = kind === 'boolean' ? ['true', 'false'] : (meta?.enumValues ?? [])
+    return (
+      <select
+        autoFocus
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={onKeyDown}
+        className={cn(className, 'appearance-none')}
+      >
+        {meta?.nullable && <option value="">(null)</option>}
+        {options.map((opt) => (
+          <option key={opt} value={opt}>
+            {opt}
+          </option>
+        ))}
+      </select>
+    )
+  }
+
+  return (
+    <input
+      autoFocus
+      type={kind === 'number' ? 'number' : 'text'}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      onKeyDown={onKeyDown}
+      onFocus={(e) => e.target.select()}
+      className={className}
+    />
   )
 }

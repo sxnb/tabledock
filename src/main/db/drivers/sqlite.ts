@@ -1,11 +1,15 @@
 import Database from 'better-sqlite3'
 import { basename } from 'path'
 import type {
+  ColumnMeta,
   ConnectionConfig,
   GetRowsOptions,
   QueryResult,
   RelationalDriver,
-  RowsResult
+  RowsResult,
+  TableMeta,
+  UpdateRowParams,
+  UpdateRowResult
 } from '../types'
 
 function quoteIdent(name: string): string {
@@ -71,6 +75,42 @@ export class SqliteDriver implements RelationalDriver {
       page,
       pageSize
     }
+  }
+
+  async getTableMeta(table: string): Promise<TableMeta> {
+    const info = this.handle.prepare(`PRAGMA table_info(${quoteIdent(table)})`).all() as {
+      name: string
+      type: string
+      notnull: number
+      pk: number
+    }[]
+    const columns: ColumnMeta[] = info.map((c) => ({
+      name: c.name,
+      dataType: (c.type || '').toLowerCase(),
+      nullable: c.notnull === 0,
+      isPrimaryKey: c.pk > 0
+    }))
+    return { columns, primaryKeys: columns.filter((c) => c.isPrimaryKey).map((c) => c.name) }
+  }
+
+  async updateRow(table: string, params: UpdateRowParams): Promise<UpdateRowResult> {
+    const { pk, changes } = params
+    const changeCols = Object.keys(changes)
+    const pkCols = Object.keys(pk)
+    if (changeCols.length === 0) return { affectedRows: 0 }
+    if (pkCols.length === 0) throw new Error('Cannot update a row without a primary key')
+
+    const setClause = changeCols.map((c) => `${quoteIdent(c)} = ?`).join(', ')
+    const whereClause = pkCols.map((c) => `${quoteIdent(c)} = ?`).join(' AND ')
+    // SQLite has no boolean type and better-sqlite3 refuses to bind booleans.
+    const bind = (v: unknown): unknown => (typeof v === 'boolean' ? (v ? 1 : 0) : v)
+    const values = [...changeCols.map((c) => bind(changes[c])), ...pkCols.map((c) => bind(pk[c]))]
+
+    const stmt = this.handle.prepare(
+      `UPDATE ${quoteIdent(table)} SET ${setClause} WHERE ${whereClause}`
+    )
+    const info = stmt.run(...(values as never[]))
+    return { affectedRows: info.changes }
   }
 
   async runQuery(sql: string): Promise<QueryResult> {

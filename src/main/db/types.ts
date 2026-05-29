@@ -4,7 +4,10 @@ import type {
   QueryResult,
   RedisScanResult,
   RedisValue,
-  RowsResult
+  RowsResult,
+  TableMeta,
+  UpdateRowParams,
+  UpdateRowResult
 } from '../../shared/types'
 
 export * from '../../shared/types'
@@ -17,6 +20,8 @@ export interface RelationalDriver {
   listDatabases(): Promise<string[]>
   listTables(database?: string): Promise<string[]>
   getRows(table: string, opts: GetRowsOptions): Promise<RowsResult>
+  getTableMeta(table: string, database?: string): Promise<TableMeta>
+  updateRow(table: string, params: UpdateRowParams): Promise<UpdateRowResult>
   runQuery(sql: string, database?: string): Promise<QueryResult>
 }
 

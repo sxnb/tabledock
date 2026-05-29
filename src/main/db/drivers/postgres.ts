@@ -1,10 +1,14 @@
 import pg from 'pg'
 import type {
+  ColumnMeta,
   ConnectionConfig,
   GetRowsOptions,
   QueryResult,
   RelationalDriver,
-  RowsResult
+  RowsResult,
+  TableMeta,
+  UpdateRowParams,
+  UpdateRowResult
 } from '../types'
 
 // Return numeric/bigint types as-is where safe; pg parses int8 as string by default.
@@ -99,6 +103,95 @@ export class PostgresDriver implements RelationalDriver {
       page,
       pageSize
     }
+  }
+
+  async getTableMeta(table: string, database?: string): Promise<TableMeta> {
+    const pool = await this.poolFor(database || this.currentDatabase)
+
+    const colsRes = await pool.query<{
+      column_name: string
+      data_type: string
+      udt_name: string
+      is_nullable: string
+    }>(
+      `SELECT column_name, data_type, udt_name, is_nullable
+       FROM information_schema.columns
+       WHERE table_schema = 'public' AND table_name = $1
+       ORDER BY ordinal_position`,
+      [table]
+    )
+
+    const pkRes = await pool.query<{ name: string }>(
+      `SELECT a.attname AS name
+       FROM pg_index i
+       JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY (i.indkey)
+       WHERE i.indrelid = (quote_ident('public') || '.' || quote_ident($1))::regclass
+         AND i.indisprimary`,
+      [table]
+    )
+    const primaryKeys = pkRes.rows.map((r) => r.name)
+
+    // Resolve enum labels for any user-defined (enum) column types.
+    const enumTypes = colsRes.rows
+      .filter((c) => c.data_type === 'USER-DEFINED')
+      .map((c) => c.udt_name)
+    const enumMap = await this.loadEnumLabels(pool, enumTypes)
+
+    const columns: ColumnMeta[] = colsRes.rows.map((c) => {
+      const meta: ColumnMeta = {
+        name: c.column_name,
+        dataType:
+          c.data_type === 'USER-DEFINED' ? c.udt_name.toLowerCase() : c.data_type.toLowerCase(),
+        nullable: c.is_nullable.toUpperCase() === 'YES',
+        isPrimaryKey: primaryKeys.includes(c.column_name)
+      }
+      const labels = enumMap.get(c.udt_name)
+      if (labels) meta.enumValues = labels
+      return meta
+    })
+
+    return { columns, primaryKeys }
+  }
+
+  private async loadEnumLabels(pool: pg.Pool, typeNames: string[]): Promise<Map<string, string[]>> {
+    const map = new Map<string, string[]>()
+    if (typeNames.length === 0) return map
+    const res = await pool.query<{ typname: string; enumlabel: string }>(
+      `SELECT t.typname, e.enumlabel
+       FROM pg_type t
+       JOIN pg_enum e ON e.enumtypid = t.oid
+       WHERE t.typname = ANY ($1)
+       ORDER BY e.enumsortorder`,
+      [typeNames]
+    )
+    for (const row of res.rows) {
+      const list = map.get(row.typname) ?? []
+      list.push(row.enumlabel)
+      map.set(row.typname, list)
+    }
+    return map
+  }
+
+  async updateRow(table: string, params: UpdateRowParams): Promise<UpdateRowResult> {
+    const { database, pk, changes } = params
+    const changeCols = Object.keys(changes)
+    const pkCols = Object.keys(pk)
+    if (changeCols.length === 0) return { affectedRows: 0 }
+    if (pkCols.length === 0) throw new Error('Cannot update a row without a primary key')
+
+    const pool = await this.poolFor(database || this.currentDatabase)
+    const qualified = `${quoteIdent('public')}.${quoteIdent(table)}`
+
+    let i = 1
+    const setClause = changeCols.map((c) => `${quoteIdent(c)} = $${i++}`).join(', ')
+    const whereClause = pkCols.map((c) => `${quoteIdent(c)} = $${i++}`).join(' AND ')
+    const values = [...changeCols.map((c) => changes[c]), ...pkCols.map((c) => pk[c])]
+
+    const res = await pool.query(
+      `UPDATE ${qualified} SET ${setClause} WHERE ${whereClause}`,
+      values
+    )
+    return { affectedRows: res.rowCount ?? 0 }
   }
 
   async runQuery(sql: string, database?: string): Promise<QueryResult> {

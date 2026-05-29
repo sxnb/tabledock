@@ -7,7 +7,8 @@ import {
   type GetRowsOptions,
   type IpcResult,
   type RedisDriverApi,
-  type RelationalDriver
+  type RelationalDriver,
+  type UpdateRowParams
 } from './types'
 
 /** Run a handler and wrap success/failure in the IpcResult envelope. */
@@ -47,6 +48,12 @@ export function registerDbIpc(): void {
   )
   handle('db:rows', (sessionId: string, table: string, opts: GetRowsOptions) =>
     relational(sessionId).getRows(table, opts)
+  )
+  handle('db:tableMeta', (sessionId: string, table: string, database?: string) =>
+    relational(sessionId).getTableMeta(table, database)
+  )
+  handle('db:update', (sessionId: string, table: string, params: UpdateRowParams) =>
+    relational(sessionId).updateRow(table, params)
   )
   handle('db:query', (sessionId: string, sql: string, database?: string) =>
     relational(sessionId).runQuery(sql, database)

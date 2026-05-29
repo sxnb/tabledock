@@ -8,7 +8,10 @@ import type {
   QueryResult,
   RedisScanResult,
   RedisValue,
-  RowsResult
+  RowsResult,
+  TableMeta,
+  UpdateRowParams,
+  UpdateRowResult
 } from '../shared/types'
 
 /** Unwrap the IpcResult envelope into a resolved value or a thrown error. */
@@ -33,6 +36,10 @@ const api: DataDockApi = {
       invoke('db:tables', sessionId, database),
     rows: (sessionId: string, table: string, opts: GetRowsOptions): Promise<RowsResult> =>
       invoke('db:rows', sessionId, table, opts),
+    tableMeta: (sessionId: string, table: string, database?: string): Promise<TableMeta> =>
+      invoke('db:tableMeta', sessionId, table, database),
+    update: (sessionId: string, table: string, params: UpdateRowParams): Promise<UpdateRowResult> =>
+      invoke('db:update', sessionId, table, params),
     query: (sessionId: string, sql: string, database?: string): Promise<QueryResult> =>
       invoke('db:query', sessionId, sql, database)
   },

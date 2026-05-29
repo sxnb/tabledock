@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ChevronLeft, ChevronRight, RefreshCw, AlertTriangle } from 'lucide-react'
-import type { RowsResult } from '@shared/types'
-import { DataTable } from '@renderer/components/ui/DataTable'
+import type { RowsResult, TableMeta } from '@shared/types'
+import { DataTable, type DataTableEditing } from '@renderer/components/ui/DataTable'
 import { IconButton } from '@renderer/components/ui/IconButton'
 import { Spinner } from '@renderer/components/ui/Spinner'
 import { Select } from '@renderer/components/ui/Select'
@@ -18,6 +18,7 @@ export function TableDataTab({ sessionId, table, database }: TableDataTabProps):
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(100)
   const [result, setResult] = useState<RowsResult | null>(null)
+  const [meta, setMeta] = useState<TableMeta | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -40,10 +41,57 @@ export function TableDataTab({ sessionId, table, database }: TableDataTabProps):
     void load()
   }, [load])
 
+  // Load column metadata + primary keys once per table (enables inline editing).
+  useEffect(() => {
+    let cancelled = false
+    window.api.db
+      .tableMeta(sessionId, table, database)
+      .then((m) => {
+        if (!cancelled) setMeta(m)
+      })
+      .catch(() => {
+        if (!cancelled) setMeta(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [sessionId, table, database])
+
+  const applyEdit = useCallback(
+    async (rowIndex: number, column: string, value: unknown): Promise<void> => {
+      if (!result || !meta) return
+      const pk: Record<string, unknown> = {}
+      for (const key of meta.primaryKeys) {
+        const idx = result.columns.indexOf(key)
+        if (idx < 0) throw new Error(`Primary key column "${key}" is not in the result set`)
+        pk[key] = result.rows[rowIndex][idx]
+      }
+      await window.api.db.update(sessionId, table, { database, pk, changes: { [column]: value } })
+      // Reflect the change locally without refetching the whole page.
+      const colIndex = result.columns.indexOf(column)
+      setResult((prev) => {
+        if (!prev) return prev
+        const rows = prev.rows.map((r, i) => {
+          if (i !== rowIndex) return r
+          const copy = [...r]
+          copy[colIndex] = value
+          return copy
+        })
+        return { ...prev, rows }
+      })
+    },
+    [result, meta, sessionId, table, database]
+  )
+
+  const editing: DataTableEditing | undefined = meta
+    ? { columnsMeta: meta.columns, primaryKeys: meta.primaryKeys, onApply: applyEdit }
+    : undefined
+
   const total = result?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
   const from = total === 0 ? 0 : (page - 1) * pageSize + 1
   const to = Math.min(page * pageSize, total)
+  const editable = (meta?.primaryKeys.length ?? 0) > 0
 
   return (
     <div className="flex h-full flex-col">
@@ -54,6 +102,11 @@ export function TableDataTab({ sessionId, table, database }: TableDataTabProps):
           {from}–{to} of {total.toLocaleString()}
         </span>
         {loading && <Spinner size={13} />}
+        {meta && !editable && (
+          <span className="text-faint" title="Inline editing requires a primary key">
+            · read-only (no primary key)
+          </span>
+        )}
         <div className="flex-1" />
         <Select
           className="h-7 w-auto pr-7 text-xs"
@@ -101,6 +154,7 @@ export function TableDataTab({ sessionId, table, database }: TableDataTabProps):
             columns={result?.columns ?? []}
             rows={result?.rows ?? []}
             emptyMessage="This table is empty"
+            editing={editing}
           />
         )}
       </div>
