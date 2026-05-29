@@ -1,0 +1,15 @@
+wing: datadock
+rooms:
+  - name: resources
+    description: Files from resources/
+    keywords:
+      - resources
+      - resources
+  - name: src
+    description: Files from src/
+    keywords:
+      - src
+      - src
+  - name: general
+    description: Files that don't fit other rooms
+    keywords: []

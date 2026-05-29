@@ -1,0 +1,131 @@
+import { Plus, Pencil, Trash2, Database as DatabaseIcon } from 'lucide-react'
+import type { ConnectionConfig } from '@shared/types'
+import { KIND_META } from '@renderer/lib/kinds'
+import { useConnections } from '@renderer/store/connections'
+import { useWorkspace } from '@renderer/store/workspace'
+import { cn } from '@renderer/lib/cn'
+import { Button } from './ui/Button'
+import { IconButton } from './ui/IconButton'
+
+interface SidebarProps {
+  onNew: () => void
+  onEdit: (config: ConnectionConfig) => void
+}
+
+export function Sidebar({ onNew, onEdit }: SidebarProps): React.JSX.Element {
+  const connections = useConnections((s) => s.connections)
+  const remove = useConnections((s) => s.remove)
+  const sessions = useWorkspace((s) => s.sessions)
+  const activeSessionId = useWorkspace((s) => s.activeSessionId)
+  const openConnection = useWorkspace((s) => s.openConnection)
+  const closeConnection = useWorkspace((s) => s.closeConnection)
+
+  const onDelete = async (config: ConnectionConfig): Promise<void> => {
+    if (sessions[config.id]) await closeConnection(config.id)
+    await remove(config.id)
+  }
+
+  return (
+    <aside className="flex w-64 shrink-0 flex-col border-r border-border bg-surface">
+      <header className="flex items-center gap-2 px-4 py-3.5">
+        <div className="grid h-7 w-7 place-items-center rounded-md bg-gradient-to-br from-accent to-blue text-white shadow-[0_0_12px_rgba(139,123,255,0.5)]">
+          <DatabaseIcon size={15} />
+        </div>
+        <span className="text-sm font-semibold tracking-tight text-text">DataDock</span>
+      </header>
+
+      <div className="px-3 pb-2">
+        <Button variant="secondary" className="w-full" onClick={onNew}>
+          <Plus size={14} />
+          New connection
+        </Button>
+      </div>
+
+      <div className="mt-1 flex-1 overflow-y-auto px-2 pb-3">
+        <div className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-faint">
+          Connections
+        </div>
+        {connections.length === 0 && (
+          <p className="px-2 py-3 text-xs leading-relaxed text-faint">
+            No saved connections yet. Create one to get started.
+          </p>
+        )}
+        <ul className="flex flex-col gap-0.5">
+          {connections.map((config) => {
+            const meta = KIND_META[config.kind]
+            const session = sessions[config.id]
+            const active = activeSessionId === config.id
+            const Icon = meta.icon
+            return (
+              <li key={config.id}>
+                <div
+                  onMouseDown={() => openConnection(config)}
+                  className={cn(
+                    'group flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 transition-colors',
+                    active ? 'bg-accent-soft' : 'hover:bg-surface-2'
+                  )}
+                >
+                  <span
+                    className="grid h-6 w-6 shrink-0 place-items-center rounded"
+                    style={{ color: meta.color, background: `${meta.color}1a` }}
+                  >
+                    <Icon size={13} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="truncate text-[13px] text-text">{config.name}</span>
+                      {session && <StatusDot status={session.status} />}
+                    </div>
+                    <div className="truncate text-[11px] text-faint">{connSubtitle(config)}</div>
+                  </div>
+                  <div className="flex shrink-0 items-center opacity-0 transition-opacity group-hover:opacity-100">
+                    <IconButton
+                      label="Edit"
+                      className="h-6 w-6"
+                      onMouseDown={(e) => {
+                        e.stopPropagation()
+                        onEdit(config)
+                      }}
+                    >
+                      <Pencil size={12} />
+                    </IconButton>
+                    <IconButton
+                      label="Delete"
+                      className="h-6 w-6 hover:text-danger"
+                      onMouseDown={(e) => {
+                        e.stopPropagation()
+                        void onDelete(config)
+                      }}
+                    >
+                      <Trash2 size={12} />
+                    </IconButton>
+                  </div>
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      </div>
+    </aside>
+  )
+}
+
+function connSubtitle(config: ConnectionConfig): string {
+  if (config.kind === 'sqlite') return config.filePath?.split('/').pop() ?? 'SQLite'
+  if (config.kind === 'redis') return `${config.host}:${config.port} · db${config.redisDb ?? 0}`
+  return `${config.host}:${config.port}`
+}
+
+function StatusDot({
+  status
+}: {
+  status: 'connecting' | 'connected' | 'error'
+}): React.JSX.Element {
+  const color =
+    status === 'connected'
+      ? 'bg-ok'
+      : status === 'connecting'
+        ? 'bg-blue animate-pulse'
+        : 'bg-danger'
+  return <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', color)} />
+}
