@@ -122,10 +122,7 @@ export function RelationalWorkspace({ session }: { session: Session }): React.JS
       {/* Left rail: database picker + table list */}
       <div className="flex w-60 shrink-0 flex-col border-r border-border bg-surface">
         {!isSqlite && (
-          <div
-            className="rounded-b-lg p-2.5"
-            style={session.config.color ? { backgroundColor: session.config.color } : undefined}
-          >
+          <div className="rounded-b-lg p-2.5">
             <Select
               value={session.selectedDatabase ?? ''}
               onChange={(e) => requestDatabaseChange(e.target.value)}

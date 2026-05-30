@@ -28,10 +28,10 @@ export function Sidebar({ onNew, onEdit }: SidebarProps): React.JSX.Element {
   const [settingsOpen, setSettingsOpen] = useState(false)
 
   // When a custom sidebar background is set, make elements legible over it:
-  // selected rows get a darker variant of the background, and otherwise-bare
-  // labels get a dark translucent backing.
+  // the selected row uses a darker variant of the background at 50% alpha (with
+  // a shadow), and otherwise-bare labels get a dark translucent backing.
   const themed = Boolean(sidebarBg.color)
-  const activeBg = sidebarBg.color ? darken(sidebarBg.color, 0.38) : null
+  const activeBg = sidebarBg.color ? `${darken(sidebarBg.color, 0.38)}80` : null
 
   const onDelete = async (config: ConnectionConfig): Promise<void> => {
     if (sessions[config.id]) await closeConnection(config.id)
@@ -48,13 +48,6 @@ export function Sidebar({ onNew, onEdit }: SidebarProps): React.JSX.Element {
           </div>
           <span className="text-sm font-semibold tracking-tight text-text">DataDock</span>
         </header>
-
-        <div className="px-3 pb-2">
-          <Button variant="secondary" className="w-full" onClick={onNew}>
-            <Plus size={14} />
-            New connection
-          </Button>
-        </div>
 
         <div className="mt-1 flex-1 overflow-y-auto px-2 pb-3">
           <div className="px-2 py-1.5">
@@ -82,7 +75,14 @@ export function Sidebar({ onNew, onEdit }: SidebarProps): React.JSX.Element {
                 <li key={config.id}>
                   <div
                     onMouseDown={() => openConnection(config)}
-                    style={active && activeBg ? { backgroundColor: activeBg } : undefined}
+                    style={
+                      active && activeBg
+                        ? {
+                            backgroundColor: activeBg,
+                            boxShadow: 'rgba(0, 0, 0, 0.2) 0px 2px 8px 0px'
+                          }
+                        : undefined
+                    }
                     className={cn(
                       'group flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 transition-colors',
                       active ? (activeBg ? '' : 'bg-accent-soft') : 'hover:bg-surface-2'
@@ -102,7 +102,14 @@ export function Sidebar({ onNew, onEdit }: SidebarProps): React.JSX.Element {
                         <span className="truncate text-[13px] text-text">{config.name}</span>
                         {session && <StatusDot status={session.status} />}
                       </div>
-                      <div className="truncate text-[11px] text-faint">{connSubtitle(config)}</div>
+                      <div
+                        className={cn(
+                          'truncate text-[11px]',
+                          themed ? 'text-text/60' : 'text-faint'
+                        )}
+                      >
+                        {connSubtitle(config)}
+                      </div>
                     </div>
                     <div className="flex shrink-0 items-center opacity-0 transition-opacity group-hover:opacity-100">
                       <IconButton
@@ -133,14 +140,18 @@ export function Sidebar({ onNew, onEdit }: SidebarProps): React.JSX.Element {
           </ul>
         </div>
 
-        <div className="border-t border-border/70 p-2">
-          <button
+        <div className="flex items-center gap-2 border-t border-border/70 bg-black/20 p-2">
+          <Button variant="secondary" className="flex-1" onClick={onNew}>
+            <Plus size={14} />
+            New connection
+          </Button>
+          <IconButton
+            label="Settings"
+            className="h-9 w-9 shrink-0"
             onClick={() => setSettingsOpen(true)}
-            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-muted transition-colors hover:bg-surface-2 hover:text-text"
           >
-            <Settings size={14} className="text-faint" />
-            Settings
-          </button>
+            <Settings size={16} />
+          </IconButton>
         </div>
       </div>
 
