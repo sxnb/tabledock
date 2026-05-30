@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ConnectionConfig } from '@shared/types'
 import { useConnections } from './store/connections'
+import { useSettings } from './store/settings'
 import { Sidebar } from './components/Sidebar'
 import { Workspace } from './components/Workspace'
 import { ConnectionForm } from './components/ConnectionForm'
@@ -8,12 +9,14 @@ import { TooltipProvider } from './components/ui/Tooltip'
 
 function App(): React.JSX.Element {
   const load = useConnections((s) => s.load)
+  const loadSettings = useSettings((s) => s.load)
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<ConnectionConfig | null>(null)
 
   useEffect(() => {
     void load()
-  }, [load])
+    void loadSettings()
+  }, [load, loadSettings])
 
   const openNew = (): void => {
     setEditing(null)

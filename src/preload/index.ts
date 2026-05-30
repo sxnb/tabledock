@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type {
+  AppSettings,
   ConnectionConfig,
   DataDockApi,
   GetRowsOptions,
@@ -70,6 +71,10 @@ const api: DataDockApi = {
     add: (connectionId: string, entry: { sql: string; ok: boolean }): Promise<void> =>
       invoke('history:add', connectionId, entry),
     clear: (connectionId: string): Promise<void> => invoke('history:clear', connectionId)
+  },
+  settings: {
+    get: (): Promise<AppSettings> => invoke('settings:get'),
+    set: (settings: AppSettings): Promise<void> => invoke('settings:set', settings)
   }
 }
 

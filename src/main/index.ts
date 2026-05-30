@@ -5,6 +5,7 @@ import icon from '../../resources/icon.png?asset'
 import { registerDbIpc } from './db/ipc'
 import { registerStoreIpc } from './store'
 import { registerHistoryIpc } from './history'
+import { registerSettingsIpc } from './settings'
 import { connectionManager } from './db/manager'
 
 function createWindow(): void {
@@ -57,6 +58,7 @@ app.whenReady().then(() => {
   registerDbIpc()
   registerStoreIpc()
   registerHistoryIpc()
+  registerSettingsIpc()
 
   createWindow()
 

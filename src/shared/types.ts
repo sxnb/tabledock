@@ -138,6 +138,18 @@ export interface QueryHistoryEntry {
   ok: boolean
 }
 
+export interface SidebarSettings {
+  /** Base background color (hex). Null uses the default surface. */
+  color: string | null
+  /** Noise overlay strength, 0..1. */
+  noise: number
+}
+
+/** Persisted, app-wide user settings. */
+export interface AppSettings {
+  sidebar: SidebarSettings
+}
+
 /** A column as shown in the relation diagram. */
 export interface SchemaColumn {
   name: string
@@ -219,6 +231,10 @@ export interface DataDockApi {
     list(connectionId: string): Promise<QueryHistoryEntry[]>
     add(connectionId: string, entry: { sql: string; ok: boolean }): Promise<void>
     clear(connectionId: string): Promise<void>
+  }
+  settings: {
+    get(): Promise<AppSettings>
+    set(settings: AppSettings): Promise<void>
   }
 }
 
