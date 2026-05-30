@@ -4,6 +4,8 @@ import type {
   AppSettings,
   ConnectionConfig,
   DataDockApi,
+  DeleteRowParams,
+  InsertRowParams,
   GetRowsOptions,
   IpcResult,
   OpenFileOptions,
@@ -44,6 +46,16 @@ const api: DataDockApi = {
       invoke('db:tableMeta', sessionId, table, database),
     update: (sessionId: string, table: string, params: UpdateRowParams): Promise<UpdateRowResult> =>
       invoke('db:update', sessionId, table, params),
+    deleteRow: (
+      sessionId: string,
+      table: string,
+      params: DeleteRowParams
+    ): Promise<UpdateRowResult> => invoke('db:delete', sessionId, table, params),
+    insertRow: (
+      sessionId: string,
+      table: string,
+      params: InsertRowParams
+    ): Promise<UpdateRowResult> => invoke('db:insert', sessionId, table, params),
     schemaGraph: (sessionId: string, database?: string): Promise<SchemaGraph> =>
       invoke('db:schemaGraph', sessionId, database),
     query: (sessionId: string, sql: string, database?: string): Promise<QueryResult> =>

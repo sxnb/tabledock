@@ -4,6 +4,8 @@ import { buildFilter } from '../filter'
 import type {
   ColumnMeta,
   ConnectionConfig,
+  DeleteRowParams,
+  InsertRowParams,
   GetRowsOptions,
   QueryResult,
   RelationalDriver,
@@ -126,6 +128,33 @@ export class SqliteDriver implements RelationalDriver {
       `UPDATE ${quoteIdent(table)} SET ${setClause} WHERE ${whereClause}`
     )
     const info = stmt.run(...(values as never[]))
+    return { affectedRows: info.changes }
+  }
+
+  async deleteRow(table: string, params: DeleteRowParams): Promise<UpdateRowResult> {
+    const { pk } = params
+    const pkCols = Object.keys(pk)
+    if (pkCols.length === 0) throw new Error('Cannot delete a row without a primary key')
+
+    const bind = (v: unknown): unknown => (typeof v === 'boolean' ? (v ? 1 : 0) : v)
+    const whereClause = pkCols.map((c) => `${quoteIdent(c)} = ?`).join(' AND ')
+    const stmt = this.handle.prepare(`DELETE FROM ${quoteIdent(table)} WHERE ${whereClause}`)
+    const info = stmt.run(...(pkCols.map((c) => bind(pk[c])) as never[]))
+    return { affectedRows: info.changes }
+  }
+
+  async insertRow(table: string, params: InsertRowParams): Promise<UpdateRowResult> {
+    const { values } = params
+    const cols = Object.keys(values)
+    if (cols.length === 0) throw new Error('No values to insert')
+
+    const bind = (v: unknown): unknown => (typeof v === 'boolean' ? (v ? 1 : 0) : v)
+    const colList = cols.map(quoteIdent).join(', ')
+    const placeholders = cols.map(() => '?').join(', ')
+    const stmt = this.handle.prepare(
+      `INSERT INTO ${quoteIdent(table)} (${colList}) VALUES (${placeholders})`
+    )
+    const info = stmt.run(...(cols.map((c) => bind(values[c])) as never[]))
     return { affectedRows: info.changes }
   }
 

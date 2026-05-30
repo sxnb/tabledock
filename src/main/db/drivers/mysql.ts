@@ -4,6 +4,8 @@ import { buildFilter } from '../filter'
 import type {
   ColumnMeta,
   ConnectionConfig,
+  DeleteRowParams,
+  InsertRowParams,
   GetRowsOptions,
   QueryResult,
   RelationalDriver,
@@ -147,6 +149,35 @@ export class MySqlDriver implements RelationalDriver {
     const [result] = await this.db.query<mysql.ResultSetHeader>(
       `UPDATE ${qualified} SET ${setClause} WHERE ${whereClause} LIMIT 1`,
       values
+    )
+    return { affectedRows: result.affectedRows }
+  }
+
+  async deleteRow(table: string, params: DeleteRowParams): Promise<UpdateRowResult> {
+    const { database, pk } = params
+    const pkCols = Object.keys(pk)
+    if (pkCols.length === 0) throw new Error('Cannot delete a row without a primary key')
+
+    const qualified = database ? `${quoteIdent(database)}.${quoteIdent(table)}` : quoteIdent(table)
+    const whereClause = pkCols.map((c) => `${quoteIdent(c)} = ?`).join(' AND ')
+    const [result] = await this.db.query<mysql.ResultSetHeader>(
+      `DELETE FROM ${qualified} WHERE ${whereClause} LIMIT 1`,
+      pkCols.map((c) => pk[c])
+    )
+    return { affectedRows: result.affectedRows }
+  }
+
+  async insertRow(table: string, params: InsertRowParams): Promise<UpdateRowResult> {
+    const { database, values } = params
+    const cols = Object.keys(values)
+    if (cols.length === 0) throw new Error('No values to insert')
+
+    const qualified = database ? `${quoteIdent(database)}.${quoteIdent(table)}` : quoteIdent(table)
+    const colList = cols.map(quoteIdent).join(', ')
+    const placeholders = cols.map(() => '?').join(', ')
+    const [result] = await this.db.query<mysql.ResultSetHeader>(
+      `INSERT INTO ${qualified} (${colList}) VALUES (${placeholders})`,
+      cols.map((c) => values[c])
     )
     return { affectedRows: result.affectedRows }
   }

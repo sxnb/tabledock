@@ -4,6 +4,8 @@ import {
   isRedisDriver,
   isRelationalDriver,
   type ConnectionConfig,
+  type DeleteRowParams,
+  type InsertRowParams,
   type GetRowsOptions,
   type IpcResult,
   type OpenFileOptions,
@@ -55,6 +57,12 @@ export function registerDbIpc(): void {
   )
   handle('db:update', (sessionId: string, table: string, params: UpdateRowParams) =>
     relational(sessionId).updateRow(table, params)
+  )
+  handle('db:delete', (sessionId: string, table: string, params: DeleteRowParams) =>
+    relational(sessionId).deleteRow(table, params)
+  )
+  handle('db:insert', (sessionId: string, table: string, params: InsertRowParams) =>
+    relational(sessionId).insertRow(table, params)
   )
   handle('db:schemaGraph', (sessionId: string, database?: string) =>
     relational(sessionId).getSchemaGraph(database)

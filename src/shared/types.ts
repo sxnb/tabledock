@@ -128,6 +128,18 @@ export interface UpdateRowResult {
   affectedRows: number
 }
 
+export interface DeleteRowParams {
+  database?: string
+  /** Primary-key column → value, used to locate the row to delete. */
+  pk: Record<string, unknown>
+}
+
+export interface InsertRowParams {
+  database?: string
+  /** Column → value for the columns to insert; omitted columns use DB defaults. */
+  values: Record<string, unknown>
+}
+
 /** A single executed-query record in a connection's history. */
 export interface QueryHistoryEntry {
   id: string
@@ -212,6 +224,8 @@ export interface DataDockApi {
     rows(sessionId: string, table: string, opts: GetRowsOptions): Promise<RowsResult>
     tableMeta(sessionId: string, table: string, database?: string): Promise<TableMeta>
     update(sessionId: string, table: string, params: UpdateRowParams): Promise<UpdateRowResult>
+    deleteRow(sessionId: string, table: string, params: DeleteRowParams): Promise<UpdateRowResult>
+    insertRow(sessionId: string, table: string, params: InsertRowParams): Promise<UpdateRowResult>
     schemaGraph(sessionId: string, database?: string): Promise<SchemaGraph>
     query(sessionId: string, sql: string, database?: string): Promise<QueryResult>
   }

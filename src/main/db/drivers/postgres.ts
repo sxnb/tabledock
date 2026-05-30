@@ -4,6 +4,8 @@ import { buildFilter } from '../filter'
 import type {
   ColumnMeta,
   ConnectionConfig,
+  DeleteRowParams,
+  InsertRowParams,
   GetRowsOptions,
   QueryResult,
   RelationalDriver,
@@ -208,6 +210,38 @@ export class PostgresDriver implements RelationalDriver {
     const res = await pool.query(
       `UPDATE ${qualified} SET ${setClause} WHERE ${whereClause}`,
       values
+    )
+    return { affectedRows: res.rowCount ?? 0 }
+  }
+
+  async deleteRow(table: string, params: DeleteRowParams): Promise<UpdateRowResult> {
+    const { database, pk } = params
+    const pkCols = Object.keys(pk)
+    if (pkCols.length === 0) throw new Error('Cannot delete a row without a primary key')
+
+    const pool = await this.poolFor(database || this.currentDatabase)
+    const qualified = `${quoteIdent('public')}.${quoteIdent(table)}`
+    let i = 1
+    const whereClause = pkCols.map((c) => `${quoteIdent(c)} = $${i++}`).join(' AND ')
+    const res = await pool.query(
+      `DELETE FROM ${qualified} WHERE ${whereClause}`,
+      pkCols.map((c) => pk[c])
+    )
+    return { affectedRows: res.rowCount ?? 0 }
+  }
+
+  async insertRow(table: string, params: InsertRowParams): Promise<UpdateRowResult> {
+    const { database, values } = params
+    const cols = Object.keys(values)
+    if (cols.length === 0) throw new Error('No values to insert')
+
+    const pool = await this.poolFor(database || this.currentDatabase)
+    const qualified = `${quoteIdent('public')}.${quoteIdent(table)}`
+    const colList = cols.map(quoteIdent).join(', ')
+    const placeholders = cols.map((_, i) => `$${i + 1}`).join(', ')
+    const res = await pool.query(
+      `INSERT INTO ${qualified} (${colList}) VALUES (${placeholders})`,
+      cols.map((c) => values[c])
     )
     return { affectedRows: res.rowCount ?? 0 }
   }

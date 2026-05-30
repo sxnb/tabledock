@@ -1,16 +1,26 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ChevronLeft, ChevronRight, RefreshCw, AlertTriangle, Search, X } from 'lucide-react'
-import type { FilterOperator, FilterSpec, RowsResult, SortSpec, TableMeta } from '@shared/types'
+import { ChevronLeft, ChevronRight, RefreshCw, AlertTriangle, Search, X, Plus } from 'lucide-react'
+import type {
+  DriverKind,
+  FilterOperator,
+  FilterSpec,
+  RowsResult,
+  SortSpec,
+  TableMeta
+} from '@shared/types'
 import { DataTable, type DataTableEditing } from '@renderer/components/ui/DataTable'
 import { IconButton } from '@renderer/components/ui/IconButton'
 import { Spinner } from '@renderer/components/ui/Spinner'
 import { Select } from '@renderer/components/ui/Select'
 import { Input } from '@renderer/components/ui/Input'
 import { Button } from '@renderer/components/ui/Button'
+import { ConfirmDialog } from '@renderer/components/ui/ConfirmDialog'
+import { RowEditModal } from './RowEditModal'
 
 interface TableDataTabProps {
   sessionId: string
   table: string
+  kind: DriverKind
   database?: string
 }
 
@@ -30,11 +40,20 @@ const FILTER_OPERATORS: { value: FilterOperator; label: string; noValue?: boolea
   { value: 'isNotNull', label: 'is not null', noValue: true }
 ]
 
-export function TableDataTab({ sessionId, table, database }: TableDataTabProps): React.JSX.Element {
+export function TableDataTab({
+  sessionId,
+  table,
+  kind,
+  database
+}: TableDataTabProps): React.JSX.Element {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(100)
   const [sort, setSort] = useState<SortSpec | null>(null)
   const [filter, setFilter] = useState<FilterSpec | null>(null)
+  // Row-action targets (indices into the current result page).
+  const [editRowIndex, setEditRowIndex] = useState<number | null>(null)
+  const [deleteRowIndex, setDeleteRowIndex] = useState<number | null>(null)
+  const [addOpen, setAddOpen] = useState(false)
   // Draft filter inputs (applied only when Search is clicked).
   const [filterColumn, setFilterColumn] = useState('')
   const [filterOp, setFilterOp] = useState<FilterOperator>('eq')
@@ -119,34 +138,86 @@ export function TableDataTab({ sessionId, table, database }: TableDataTabProps):
     }
   }, [sessionId, table, database])
 
-  const applyEdit = useCallback(
-    async (rowIndex: number, column: string, value: unknown): Promise<void> => {
-      if (!result || !meta) return
+  const pkForRow = useCallback(
+    (rowIndex: number): Record<string, unknown> => {
+      if (!result || !meta) throw new Error('Row metadata not loaded')
       const pk: Record<string, unknown> = {}
       for (const key of meta.primaryKeys) {
         const idx = result.columns.indexOf(key)
         if (idx < 0) throw new Error(`Primary key column "${key}" is not in the result set`)
         pk[key] = result.rows[rowIndex][idx]
       }
-      await window.api.db.update(sessionId, table, { database, pk, changes: { [column]: value } })
-      // Reflect the change locally without refetching the whole page.
-      const colIndex = result.columns.indexOf(column)
-      setResult((prev) => {
-        if (!prev) return prev
-        const rows = prev.rows.map((r, i) => {
-          if (i !== rowIndex) return r
-          const copy = [...r]
-          copy[colIndex] = value
-          return copy
-        })
-        return { ...prev, rows }
-      })
+      return pk
     },
-    [result, meta, sessionId, table, database]
+    [result, meta]
   )
 
+  /** Patch the given columns of a row in the local result (no refetch). */
+  const patchRow = (rowIndex: number, changes: Record<string, unknown>): void =>
+    setResult((prev) => {
+      if (!prev) return prev
+      const rows = prev.rows.map((r, i) => {
+        if (i !== rowIndex) return r
+        const copy = [...r]
+        for (const [col, val] of Object.entries(changes)) {
+          const ci = prev.columns.indexOf(col)
+          if (ci >= 0) copy[ci] = val
+        }
+        return copy
+      })
+      return { ...prev, rows }
+    })
+
+  const applyEdit = useCallback(
+    async (rowIndex: number, column: string, value: unknown): Promise<void> => {
+      await window.api.db.update(sessionId, table, {
+        database,
+        pk: pkForRow(rowIndex),
+        changes: { [column]: value }
+      })
+      patchRow(rowIndex, { [column]: value })
+    },
+    [sessionId, table, database, pkForRow]
+  )
+
+  const saveRow = useCallback(
+    async (rowIndex: number, changes: Record<string, unknown>): Promise<void> => {
+      await window.api.db.update(sessionId, table, { database, pk: pkForRow(rowIndex), changes })
+      patchRow(rowIndex, changes)
+    },
+    [sessionId, table, database, pkForRow]
+  )
+
+  const insertRow = useCallback(
+    async (values: Record<string, unknown>): Promise<void> => {
+      await window.api.db.insertRow(sessionId, table, { database, values })
+      await load()
+    },
+    [sessionId, table, database, load]
+  )
+
+  const confirmDelete = async (): Promise<void> => {
+    if (deleteRowIndex === null) return
+    try {
+      await window.api.db.deleteRow(sessionId, table, { database, pk: pkForRow(deleteRowIndex) })
+      await load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setDeleteRowIndex(null)
+    }
+  }
+
   const editing: DataTableEditing | undefined = meta
-    ? { columnsMeta: meta.columns, primaryKeys: meta.primaryKeys, onApply: applyEdit }
+    ? {
+        columnsMeta: meta.columns,
+        primaryKeys: meta.primaryKeys,
+        table,
+        kind,
+        onApply: applyEdit,
+        onEditRow: (rowIndex) => setEditRowIndex(rowIndex),
+        onDeleteRow: (rowIndex) => setDeleteRowIndex(rowIndex)
+      }
     : undefined
 
   const total = result?.total ?? 0
@@ -170,6 +241,10 @@ export function TableDataTab({ sessionId, table, database }: TableDataTabProps):
           </span>
         )}
         <div className="flex-1" />
+        <Button size="sm" variant="secondary" onClick={() => setAddOpen(true)} disabled={!meta}>
+          <Plus size={13} />
+          Add row
+        </Button>
         <Select
           className="h-7 w-auto pr-7 text-xs"
           value={pageSize}
@@ -270,6 +345,43 @@ export function TableDataTab({ sessionId, table, database }: TableDataTabProps):
           />
         )}
       </div>
+
+      {editRowIndex !== null && result && meta && (
+        <RowEditModal
+          key={editRowIndex}
+          open
+          table={table}
+          columns={result.columns}
+          columnsMeta={meta.columns}
+          values={result.rows[editRowIndex]}
+          onClose={() => setEditRowIndex(null)}
+          onSave={(changes) => saveRow(editRowIndex, changes)}
+        />
+      )}
+
+      {addOpen && result && meta && (
+        <RowEditModal
+          open
+          table={table}
+          title={`Add row · ${table}`}
+          submitLabel="Add row"
+          columns={result.columns}
+          columnsMeta={meta.columns}
+          values={result.columns.map(() => null)}
+          onClose={() => setAddOpen(false)}
+          onSave={insertRow}
+        />
+      )}
+
+      <ConfirmDialog
+        open={deleteRowIndex !== null}
+        title="Delete row?"
+        description="This permanently deletes the row from the database and cannot be undone."
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={() => void confirmDelete()}
+        onCancel={() => setDeleteRowIndex(null)}
+      />
     </div>
   )
 }

@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { X, Check, AlertTriangle, ChevronUp, ChevronDown } from 'lucide-react'
-import type { ColumnMeta, SortSpec } from '@shared/types'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { X, Check, AlertTriangle, ChevronUp, ChevronDown, Pencil, Copy, Trash2 } from 'lucide-react'
+import * as ContextMenu from '@radix-ui/react-context-menu'
+import type { ColumnMeta, DriverKind, SortSpec } from '@shared/types'
 import { formatCell } from '@renderer/lib/format'
+import { inputKind, toTypedValue } from '@renderer/lib/columnInput'
 import { cn } from '@renderer/lib/cn'
 import { Button } from './Button'
 import { Spinner } from './Spinner'
@@ -13,8 +15,14 @@ const MIN_COL_W = 60
 export interface DataTableEditing {
   columnsMeta: ColumnMeta[]
   primaryKeys: string[]
+  table: string
+  kind: DriverKind
   /** Persist a single cell change; should throw on failure. */
   onApply: (rowIndex: number, column: string, value: unknown) => Promise<void>
+  /** Open the full row editor. */
+  onEditRow: (rowIndex: number) => void
+  /** Delete the row (confirmation handled by the caller). */
+  onDeleteRow: (rowIndex: number) => void
 }
 
 interface DataTableProps {
@@ -37,23 +45,28 @@ interface EditState {
   draft: string
 }
 
-type InputKind = 'text' | 'number' | 'boolean' | 'enum'
-
-function inputKind(meta: ColumnMeta | undefined): InputKind {
-  if (!meta) return 'text'
-  if (meta.enumValues && meta.enumValues.length > 0) return 'enum'
-  if (/^bool/.test(meta.dataType)) return 'boolean'
-  if (/(int|numeric|decimal|real|double|float|serial|money)/.test(meta.dataType)) return 'number'
-  return 'text'
+function quoteIdentFor(kind: DriverKind, name: string): string {
+  if (kind === 'mysql') return '`' + name.replace(/`/g, '``') + '`'
+  return '"' + name.replace(/"/g, '""') + '"'
 }
 
-/** Convert the string draft into the typed value to send to the backend. */
-function toTypedValue(meta: ColumnMeta | undefined, draft: string): unknown {
-  const kind = inputKind(meta)
-  if (kind === 'number') return draft === '' ? null : Number(draft)
-  if (kind === 'boolean') return draft === '' ? null : draft === 'true'
-  if (kind === 'enum') return draft === '' ? null : draft
-  return draft
+function csvValue(v: unknown): string {
+  if (v == null) return ''
+  const s = typeof v === 'object' ? JSON.stringify(v) : String(v)
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+}
+
+function sqlValue(v: unknown): string {
+  if (v == null) return 'NULL'
+  if (typeof v === 'number') return String(v)
+  if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE'
+  const s = typeof v === 'object' ? JSON.stringify(v) : String(v)
+  return `'${s.replace(/'/g, "''")}'`
+}
+
+function cellText(v: unknown): string {
+  if (v == null) return ''
+  return typeof v === 'object' ? JSON.stringify(v) : String(v)
 }
 
 /**
@@ -83,6 +96,19 @@ export function DataTable({
   }, [editing])
 
   const editable = Boolean(editing) && (editing?.primaryKeys.length ?? 0) > 0
+  // The column the context menu was opened on (for "copy cell value").
+  const contextColRef = useRef(0)
+
+  const copy = (text: string): void => void navigator.clipboard.writeText(text)
+  const copyRowCsv = (ri: number): void =>
+    copy(columns.map((_, i) => csvValue(rows[ri][i])).join(','))
+  const copyRowSql = (ri: number): void => {
+    if (!editing) return
+    const cols = columns.map((c) => quoteIdentFor(editing.kind, c)).join(', ')
+    const vals = columns.map((_, i) => sqlValue(rows[ri][i])).join(', ')
+    copy(`INSERT INTO ${quoteIdentFor(editing.kind, editing.table)} (${cols}) VALUES (${vals});`)
+  }
+  const copyCell = (ri: number, ci: number): void => copy(cellText(rows[ri][ci]))
 
   // Per-column widths (px), keyed by name; unset columns use the default.
   const [widths, setWidths] = useState<Record<string, number>>({})
@@ -216,11 +242,8 @@ export function DataTable({
           <tbody>
             {rows.map((row, ri) => {
               const rowEditing = edit?.rowIndex === ri
-              return (
-                <tr
-                  key={ri}
-                  className={cn(rowEditing ? 'bg-accent-soft/60' : 'hover:bg-surface-2/60')}
-                >
+              const tr = (
+                <tr className={cn(rowEditing ? 'bg-accent-soft/60' : 'hover:bg-surface-2/60')}>
                   <td className="sticky left-0 w-12 border-b border-r border-border bg-surface px-2 py-1.5 text-right text-faint">
                     {ri + 1}
                   </td>
@@ -250,6 +273,9 @@ export function DataTable({
                         key={ci}
                         title={text}
                         onDoubleClick={() => startEdit(ri, ci, column, cell)}
+                        onContextMenu={() => {
+                          contextColRef.current = ci
+                        }}
                         className={cn(
                           'truncate border-b border-r border-border px-3 py-1.5',
                           editable && 'cursor-text',
@@ -261,6 +287,48 @@ export function DataTable({
                     )
                   })}
                 </tr>
+              )
+
+              if (!editing) return <Fragment key={ri}>{tr}</Fragment>
+
+              const hasPk = editing.primaryKeys.length > 0
+              return (
+                <ContextMenu.Root key={ri}>
+                  <ContextMenu.Trigger asChild>{tr}</ContextMenu.Trigger>
+                  <ContextMenu.Portal>
+                    <ContextMenu.Content className="z-50 min-w-48 overflow-hidden rounded-md border border-border bg-surface-2 p-1 text-xs text-text shadow-xl">
+                      <RowMenuItem
+                        icon={<Pencil size={13} />}
+                        disabled={!hasPk}
+                        onSelect={() => editing.onEditRow(ri)}
+                      >
+                        Edit row
+                      </RowMenuItem>
+                      <ContextMenu.Separator className="my-1 h-px bg-border" />
+                      <RowMenuItem icon={<Copy size={13} />} onSelect={() => copyRowCsv(ri)}>
+                        Copy row as CSV
+                      </RowMenuItem>
+                      <RowMenuItem icon={<Copy size={13} />} onSelect={() => copyRowSql(ri)}>
+                        Copy row as SQL
+                      </RowMenuItem>
+                      <RowMenuItem
+                        icon={<Copy size={13} />}
+                        onSelect={() => copyCell(ri, contextColRef.current)}
+                      >
+                        Copy cell value
+                      </RowMenuItem>
+                      <ContextMenu.Separator className="my-1 h-px bg-border" />
+                      <RowMenuItem
+                        icon={<Trash2 size={13} />}
+                        disabled={!hasPk}
+                        danger
+                        onSelect={() => editing.onDeleteRow(ri)}
+                      >
+                        Delete row
+                      </RowMenuItem>
+                    </ContextMenu.Content>
+                  </ContextMenu.Portal>
+                </ContextMenu.Root>
               )
             })}
           </tbody>
@@ -360,5 +428,36 @@ function CellEditor({
       onFocus={(e) => e.target.select()}
       className={className}
     />
+  )
+}
+
+function RowMenuItem({
+  children,
+  icon,
+  onSelect,
+  disabled,
+  danger
+}: {
+  children: React.ReactNode
+  icon: React.ReactNode
+  onSelect: () => void
+  disabled?: boolean
+  danger?: boolean
+}): React.JSX.Element {
+  return (
+    <ContextMenu.Item
+      disabled={disabled}
+      onSelect={onSelect}
+      className={cn(
+        'flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 outline-none',
+        'data-[disabled]:pointer-events-none data-[disabled]:opacity-40',
+        danger
+          ? 'text-danger data-[highlighted]:bg-danger/15'
+          : 'data-[highlighted]:bg-accent-soft data-[highlighted]:text-text'
+      )}
+    >
+      <span className="text-faint">{icon}</span>
+      {children}
+    </ContextMenu.Item>
   )
 }

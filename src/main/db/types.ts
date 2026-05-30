@@ -8,7 +8,9 @@ import type {
   SchemaGraph,
   TableMeta,
   UpdateRowParams,
-  UpdateRowResult
+  UpdateRowResult,
+  DeleteRowParams,
+  InsertRowParams
 } from '../../shared/types'
 
 export * from '../../shared/types'
@@ -23,6 +25,8 @@ export interface RelationalDriver {
   getRows(table: string, opts: GetRowsOptions): Promise<RowsResult>
   getTableMeta(table: string, database?: string): Promise<TableMeta>
   updateRow(table: string, params: UpdateRowParams): Promise<UpdateRowResult>
+  deleteRow(table: string, params: DeleteRowParams): Promise<UpdateRowResult>
+  insertRow(table: string, params: InsertRowParams): Promise<UpdateRowResult>
   getSchemaGraph(database?: string): Promise<SchemaGraph>
   runQuery(sql: string, database?: string): Promise<QueryResult>
 }
