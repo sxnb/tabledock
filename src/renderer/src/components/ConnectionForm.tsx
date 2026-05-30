@@ -1,6 +1,12 @@
 import { useState } from 'react'
 import { FolderOpen, CheckCircle2, XCircle, Check, Ban } from 'lucide-react'
-import type { ConnectionConfig, DriverKind, SslConfig } from '@shared/types'
+import type {
+  ConnectionConfig,
+  DriverKind,
+  SshAuthMethod,
+  SshConfig,
+  SslConfig
+} from '@shared/types'
 import { KIND_META, KIND_ORDER } from '@renderer/lib/kinds'
 import { useConnections } from '@renderer/store/connections'
 import { cn } from '@renderer/lib/cn'
@@ -42,7 +48,8 @@ function blankDraft(): Draft {
     database: '',
     filePath: '',
     redisDb: 0,
-    ssl: { enabled: false }
+    ssl: { enabled: false },
+    ssh: { enabled: false, authMethod: 'password' }
   }
 }
 
@@ -73,6 +80,20 @@ export function ConnectionForm({ open, editing, onClose }: ConnectionFormProps):
 
   const setSsl = (patch: Partial<SslConfig>): void =>
     setDraft((d) => ({ ...d, ssl: { ...(d.ssl ?? { enabled: false }), ...patch } }))
+
+  const setSsh = (patch: Partial<SshConfig>): void =>
+    setDraft((d) => ({ ...d, ssh: { ...(d.ssh ?? { enabled: false }), ...patch } }))
+
+  const pickSshKey = async (): Promise<void> => {
+    const path = await window.api.dialog.openFile({
+      title: 'Select SSH private key',
+      filters: [
+        { name: 'Private Keys', extensions: ['pem', 'key', 'ppk'] },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    })
+    if (path) setSsh({ privateKey: path })
+  }
 
   const pickDbFile = async (): Promise<void> => {
     const path = await window.api.dialog.openFile({
@@ -118,7 +139,9 @@ export function ConnectionForm({ open, editing, onClose }: ConnectionFormProps):
   }
 
   const valid =
-    draft.kind === 'sqlite' ? Boolean(draft.filePath) : Boolean(draft.host && draft.port)
+    draft.kind === 'sqlite'
+      ? Boolean(draft.filePath)
+      : Boolean(draft.host && draft.port) && (!draft.ssh?.enabled || Boolean(draft.ssh.host))
 
   return (
     <Modal
@@ -246,6 +269,13 @@ export function ConnectionForm({ open, editing, onClose }: ConnectionFormProps):
               onPick={pickCert}
               onChange={setSsl}
             />
+
+            <SshSection
+              ssh={draft.ssh}
+              onToggle={(enabled) => setSsh({ enabled })}
+              onPickKey={pickSshKey}
+              onChange={setSsh}
+            />
           </>
         )}
       </div>
@@ -330,6 +360,91 @@ function SslSection({
             onBrowse={() => onPick('key')}
             onChange={(v) => onChange({ key: v })}
           />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function SshSection({
+  ssh,
+  onToggle,
+  onPickKey,
+  onChange
+}: {
+  ssh?: SshConfig
+  onToggle: (enabled: boolean) => void
+  onPickKey: () => void
+  onChange: (patch: Partial<SshConfig>) => void
+}): React.JSX.Element {
+  const enabled = Boolean(ssh?.enabled)
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface-2/40 p-3">
+      <Toggle id="conn-ssh" label="Enable SSH Tunnel" checked={enabled} onChange={onToggle} />
+      {enabled && (
+        <div className="flex flex-col gap-2.5">
+          <div className="grid grid-cols-[1fr_120px] gap-3">
+            <Input
+              label="SSH Host"
+              placeholder="bastion.example.com"
+              value={ssh?.host ?? ''}
+              onChange={(e) => onChange({ host: e.target.value })}
+            />
+            <Input
+              label="SSH Port"
+              type="number"
+              value={ssh?.port ?? 22}
+              onChange={(e) => onChange({ port: Number(e.target.value) })}
+            />
+          </div>
+          <Input
+            label="SSH User"
+            value={ssh?.user ?? ''}
+            onChange={(e) => onChange({ user: e.target.value })}
+          />
+          <Select
+            label="Authentication"
+            value={ssh?.authMethod ?? 'password'}
+            onChange={(e) => onChange({ authMethod: e.target.value as SshAuthMethod })}
+          >
+            <option value="password">Username &amp; Password</option>
+            <option value="key">Key File</option>
+            <option value="agent">SSH Agent</option>
+          </Select>
+
+          {(ssh?.authMethod ?? 'password') === 'password' && (
+            <Input
+              label="SSH Password"
+              type="password"
+              value={ssh?.password ?? ''}
+              onChange={(e) => onChange({ password: e.target.value })}
+            />
+          )}
+
+          {ssh?.authMethod === 'key' && (
+            <>
+              <CertField
+                label="Private Key File"
+                value={ssh?.privateKey}
+                onBrowse={onPickKey}
+                onChange={(v) => onChange({ privateKey: v })}
+              />
+              <Input
+                label="Key Passphrase"
+                type="password"
+                placeholder="(optional)"
+                value={ssh?.passphrase ?? ''}
+                onChange={(e) => onChange({ passphrase: e.target.value })}
+              />
+            </>
+          )}
+
+          {ssh?.authMethod === 'agent' && (
+            <p className="text-xs leading-relaxed text-faint">
+              Authenticates using your system SSH agent (the <code>SSH_AUTH_SOCK</code> environment
+              variable, or Pageant on Windows).
+            </p>
+          )}
         </div>
       )}
     </div>

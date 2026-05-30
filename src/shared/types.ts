@@ -10,6 +10,24 @@ export interface SslConfig {
   key?: string
 }
 
+export type SshAuthMethod = 'password' | 'key' | 'agent'
+
+/** SSH tunnel settings. The DB is reached through this SSH server. */
+export interface SshConfig {
+  enabled: boolean
+  host?: string
+  port?: number
+  user?: string
+  /** Authentication method; defaults to 'password'. */
+  authMethod?: SshAuthMethod
+  /** SSH password (secret; encrypted at rest). Used by 'password'. */
+  password?: string
+  /** Absolute path to a private key file. Used by 'key'. */
+  privateKey?: string
+  /** Passphrase for the private key (secret; encrypted at rest). Used by 'key'. */
+  passphrase?: string
+}
+
 export interface ConnectionConfig {
   id: string
   name: string
@@ -26,6 +44,8 @@ export interface ConnectionConfig {
   redisDb?: number
   // TLS/SSL (MySQL, PostgreSQL, Redis)
   ssl?: SslConfig
+  // SSH tunnel (MySQL, PostgreSQL, Redis)
+  ssh?: SshConfig
   /** Optional accent color (hex) used to visually tag the connection. */
   color?: string
 }

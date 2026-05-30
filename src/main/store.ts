@@ -1,20 +1,31 @@
 import { app, ipcMain, safeStorage } from 'electron'
 import { readFileSync, writeFileSync, existsSync } from 'fs'
 import { join } from 'path'
-import type { ConnectionConfig, IpcResult } from './db/types'
+import type { ConnectionConfig, IpcResult, SshConfig } from './db/types'
 
 /**
- * Persists saved connections to <userData>/connections.json. Passwords are
- * never written in the clear: when the OS keychain is available they're
- * encrypted via Electron safeStorage and stored as base64. The on-disk shape
- * keeps the encrypted blob separate from the rest of the config.
+ * Persists saved connections to <userData>/connections.json. Secret fields (the
+ * DB password and the SSH password/passphrase) are never written in the clear:
+ * when the OS keychain is available they're encrypted via Electron safeStorage
+ * and stored as base64, otherwise kept as a plaintext fallback.
  */
 
-interface StoredConnection extends Omit<ConnectionConfig, 'password'> {
+interface EncryptedField {
+  enc?: string | null
+  plain?: string | null
+}
+
+interface StoredSsh extends Omit<SshConfig, 'password' | 'passphrase'> {
+  password?: EncryptedField
+  passphrase?: EncryptedField
+}
+
+interface StoredConnection extends Omit<ConnectionConfig, 'password' | 'ssh'> {
   /** Base64 of safeStorage-encrypted password, or null. */
   encryptedPassword?: string | null
   /** Plaintext fallback when encryption is unavailable. */
   plainPassword?: string | null
+  ssh?: StoredSsh
 }
 
 function storePath(): string {
@@ -36,40 +47,60 @@ function writeStore(items: StoredConnection[]): void {
   writeFileSync(storePath(), JSON.stringify(items, null, 2), 'utf-8')
 }
 
-function encrypt(
-  password: string | undefined
-): Pick<StoredConnection, 'encryptedPassword' | 'plainPassword'> {
-  if (!password) return { encryptedPassword: null, plainPassword: null }
+function encryptSecret(value: string | undefined): EncryptedField {
+  if (!value) return { enc: null, plain: null }
   if (safeStorage.isEncryptionAvailable()) {
-    return {
-      encryptedPassword: safeStorage.encryptString(password).toString('base64'),
-      plainPassword: null
-    }
+    return { enc: safeStorage.encryptString(value).toString('base64'), plain: null }
   }
-  return { encryptedPassword: null, plainPassword: password }
+  return { enc: null, plain: value }
 }
 
-function decrypt(item: StoredConnection): string | undefined {
-  if (item.encryptedPassword) {
+function decryptSecret(field: EncryptedField | undefined): string | undefined {
+  if (!field) return undefined
+  if (field.enc) {
     try {
-      return safeStorage.decryptString(Buffer.from(item.encryptedPassword, 'base64'))
+      return safeStorage.decryptString(Buffer.from(field.enc, 'base64'))
     } catch {
       return undefined
     }
   }
-  return item.plainPassword ?? undefined
+  return field.plain ?? undefined
 }
 
 function toConfig(item: StoredConnection): ConnectionConfig {
-  const { encryptedPassword, plainPassword, ...rest } = item
-  void encryptedPassword
-  void plainPassword
-  return { ...rest, password: decrypt(item) }
+  const { encryptedPassword, plainPassword, ssh, ...rest } = item
+  const config: ConnectionConfig = {
+    ...rest,
+    password: decryptSecret({ enc: encryptedPassword, plain: plainPassword })
+  }
+  if (ssh) {
+    const { password, passphrase, ...sshRest } = ssh
+    config.ssh = {
+      ...sshRest,
+      password: decryptSecret(password),
+      passphrase: decryptSecret(passphrase)
+    }
+  }
+  return config
 }
 
 function toStored(config: ConnectionConfig): StoredConnection {
-  const { password, ...rest } = config
-  return { ...rest, ...encrypt(password) }
+  const { password, ssh, ...rest } = config
+  const secret = encryptSecret(password)
+  const stored: StoredConnection = {
+    ...rest,
+    encryptedPassword: secret.enc,
+    plainPassword: secret.plain
+  }
+  if (ssh) {
+    const { password: sshPassword, passphrase, ...sshRest } = ssh
+    stored.ssh = {
+      ...sshRest,
+      password: encryptSecret(sshPassword),
+      passphrase: encryptSecret(passphrase)
+    }
+  }
+  return stored
 }
 
 function handle<T>(channel: string, fn: (...args: never[]) => T): void {
