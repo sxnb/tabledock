@@ -94,6 +94,14 @@ npm install
 
 > The `postinstall` step rebuilds native modules (e.g. `better-sqlite3`) against Electron's ABI automatically.
 
+> **macOS trackpad haptics (optional):** the noise slider can buzz the trackpad via the optional native module `node-mac-haptics`. Its bundled `node-gyp` imports `distutils`, which was removed in Python 3.12+, so on newer Python the build is skipped (the app still runs — haptics just no-op). To build it, point the install at a Python that still has `distutils`:
+>
+> ```bash
+> npm_config_python=/usr/bin/python3 npm install   # macOS system Python 3.9
+> ```
+>
+> Alternatively, `pip install setuptools` into your active Python (3.12+) to restore the `distutils` shim.
+
 ### Develop
 
 ```bash
