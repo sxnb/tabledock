@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, RefreshCw, AlertTriangle } from 'lucide-react'
-import type { RowsResult, TableMeta } from '@shared/types'
+import type { RowsResult, SortSpec, TableMeta } from '@shared/types'
 import { DataTable, type DataTableEditing } from '@renderer/components/ui/DataTable'
 import { IconButton } from '@renderer/components/ui/IconButton'
 import { Spinner } from '@renderer/components/ui/Spinner'
@@ -17,23 +17,44 @@ const PAGE_SIZES = [50, 100, 500]
 export function TableDataTab({ sessionId, table, database }: TableDataTabProps): React.JSX.Element {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(100)
+  const [sort, setSort] = useState<SortSpec | null>(null)
   const [result, setResult] = useState<RowsResult | null>(null)
   const [meta, setMeta] = useState<TableMeta | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Monotonic request id so a slower earlier fetch can't overwrite a newer one
+  // (e.g. the initial unsorted load resolving after a sort against a remote DB).
+  const reqRef = useRef(0)
 
   const load = useCallback(async () => {
+    const reqId = ++reqRef.current
     setLoading(true)
     setError(null)
     try {
-      const res = await window.api.db.rows(sessionId, table, { page, pageSize, database })
-      setResult(res)
+      const res = await window.api.db.rows(sessionId, table, {
+        page,
+        pageSize,
+        database,
+        sort: sort ?? undefined
+      })
+      if (reqRef.current === reqId) setResult(res)
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      if (reqRef.current === reqId) setError(err instanceof Error ? err.message : String(err))
     } finally {
-      setLoading(false)
+      if (reqRef.current === reqId) setLoading(false)
     }
-  }, [sessionId, table, database, page, pageSize])
+  }, [sessionId, table, database, page, pageSize, sort])
+
+  // Cycle a column's sort: unsorted → asc → desc → unsorted. Sorting resets to
+  // page 1 since it reorders the whole result set, not just the visible page.
+  const onSort = (column: string): void => {
+    setPage(1)
+    setSort((prev) => {
+      if (prev?.column !== column) return { column, direction: 'asc' }
+      if (prev.direction === 'asc') return { column, direction: 'desc' }
+      return null
+    })
+  }
 
   // Fetch rows whenever the target or pagination changes (external sync).
   useEffect(() => {
@@ -155,6 +176,8 @@ export function TableDataTab({ sessionId, table, database }: TableDataTabProps):
             rows={result?.rows ?? []}
             emptyMessage="This table is empty"
             editing={editing}
+            sort={sort}
+            onSort={onSort}
           />
         )}
       </div>

@@ -77,9 +77,12 @@ export class MySqlDriver implements RelationalDriver {
   }
 
   async getRows(table: string, opts: GetRowsOptions): Promise<RowsResult> {
-    const { page, pageSize, database } = opts
+    const { page, pageSize, database, sort } = opts
     const offset = (page - 1) * pageSize
     const qualified = database ? `${quoteIdent(database)}.${quoteIdent(table)}` : quoteIdent(table)
+    const orderBy = sort
+      ? ` ORDER BY ${quoteIdent(sort.column)} ${sort.direction === 'desc' ? 'DESC' : 'ASC'}`
+      : ''
 
     const [countRows] = await this.db.query<mysql.RowDataPacket[]>(
       `SELECT COUNT(*) AS total FROM ${qualified}`
@@ -87,7 +90,7 @@ export class MySqlDriver implements RelationalDriver {
     const total = Number(countRows[0]?.total ?? 0)
 
     const [rows, fields] = await this.db.query<mysql.RowDataPacket[]>(
-      `SELECT * FROM ${qualified} LIMIT ? OFFSET ?`,
+      `SELECT * FROM ${qualified}${orderBy} LIMIT ? OFFSET ?`,
       [pageSize, offset]
     )
     const columns = fields.map((f) => f.name)

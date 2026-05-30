@@ -87,17 +87,20 @@ export class PostgresDriver implements RelationalDriver {
   }
 
   async getRows(table: string, opts: GetRowsOptions): Promise<RowsResult> {
-    const { page, pageSize, database } = opts
+    const { page, pageSize, database, sort } = opts
     const offset = (page - 1) * pageSize
     const pool = await this.poolFor(database || this.currentDatabase)
     const qualified = `${quoteIdent('public')}.${quoteIdent(table)}`
+    const orderBy = sort
+      ? ` ORDER BY ${quoteIdent(sort.column)} ${sort.direction === 'desc' ? 'DESC' : 'ASC'}`
+      : ''
 
     const countRes = await pool.query<{ total: string }>(
       `SELECT COUNT(*) AS total FROM ${qualified}`
     )
     const total = Number(countRes.rows[0]?.total ?? 0)
 
-    const res = await pool.query(`SELECT * FROM ${qualified} LIMIT $1 OFFSET $2`, [
+    const res = await pool.query(`SELECT * FROM ${qualified}${orderBy} LIMIT $1 OFFSET $2`, [
       pageSize,
       offset
     ])

@@ -44,10 +44,19 @@ export interface RowsResult extends QueryResult {
   pageSize: number
 }
 
+export type SortDirection = 'asc' | 'desc'
+
+export interface SortSpec {
+  column: string
+  direction: SortDirection
+}
+
 export interface GetRowsOptions {
   page: number
   pageSize: number
   database?: string
+  /** Server-side ORDER BY applied to the page query. */
+  sort?: SortSpec
 }
 
 export interface ColumnMeta {

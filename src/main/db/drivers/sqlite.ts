@@ -59,16 +59,19 @@ export class SqliteDriver implements RelationalDriver {
   }
 
   async getRows(table: string, opts: GetRowsOptions): Promise<RowsResult> {
-    const { page, pageSize } = opts
+    const { page, pageSize, sort } = opts
     const offset = (page - 1) * pageSize
     const qualified = quoteIdent(table)
+    const orderBy = sort
+      ? ` ORDER BY ${quoteIdent(sort.column)} ${sort.direction === 'desc' ? 'DESC' : 'ASC'}`
+      : ''
 
     const countRow = this.handle.prepare(`SELECT COUNT(*) AS total FROM ${qualified}`).get() as {
       total: number
     }
     const total = Number(countRow?.total ?? 0)
 
-    const stmt = this.handle.prepare(`SELECT * FROM ${qualified} LIMIT ? OFFSET ?`)
+    const stmt = this.handle.prepare(`SELECT * FROM ${qualified}${orderBy} LIMIT ? OFFSET ?`)
     const rows = stmt.all(pageSize, offset) as Record<string, unknown>[]
     const columns = stmt.columns().map((c) => c.name)
     return {

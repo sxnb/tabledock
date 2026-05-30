@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { X, Check, AlertTriangle } from 'lucide-react'
-import type { ColumnMeta } from '@shared/types'
+import { X, Check, AlertTriangle, ChevronUp, ChevronDown } from 'lucide-react'
+import type { ColumnMeta, SortSpec } from '@shared/types'
 import { formatCell } from '@renderer/lib/format'
 import { cn } from '@renderer/lib/cn'
 import { Button } from './Button'
@@ -20,6 +20,10 @@ interface DataTableProps {
   emptyMessage?: string
   /** When provided (and the table has a primary key), cells become editable. */
   editing?: DataTableEditing
+  /** Current server-side sort, if any. */
+  sort?: SortSpec | null
+  /** When provided, headers become clickable to cycle the sort on that column. */
+  onSort?: (column: string) => void
 }
 
 interface EditState {
@@ -58,7 +62,9 @@ export function DataTable({
   columns,
   rows,
   emptyMessage,
-  editing
+  editing,
+  sort,
+  onSort
 }: DataTableProps): React.JSX.Element {
   const [edit, setEdit] = useState<EditState | null>(null)
   const [saving, setSaving] = useState(false)
@@ -129,17 +135,40 @@ export function DataTable({
               <th className="sticky left-0 z-20 w-12 border-b border-r border-border bg-surface-3 px-2 py-1.5 text-right font-medium text-faint">
                 #
               </th>
-              {columns.map((col, i) => (
-                <th
-                  key={i}
-                  className="whitespace-nowrap border-b border-r border-border bg-surface-3 px-3 py-1.5 font-semibold text-muted"
-                >
-                  {col}
-                  {metaByName.get(col)?.isPrimaryKey && (
-                    <span className="ml-1 text-[9px] text-accent">PK</span>
-                  )}
-                </th>
-              ))}
+              {columns.map((col, i) => {
+                const sorted = sort?.column === col ? sort.direction : null
+                const headerInner = (
+                  <>
+                    <span className="truncate">{col}</span>
+                    {metaByName.get(col)?.isPrimaryKey && (
+                      <span className="text-[9px] text-accent">PK</span>
+                    )}
+                    {sorted === 'asc' && <ChevronUp size={12} className="text-accent" />}
+                    {sorted === 'desc' && <ChevronDown size={12} className="text-accent" />}
+                  </>
+                )
+                return (
+                  <th
+                    key={i}
+                    className={cn(
+                      'whitespace-nowrap border-b border-r border-border bg-surface-3 px-3 py-1.5 font-semibold',
+                      sorted ? 'text-text' : 'text-muted'
+                    )}
+                  >
+                    {onSort ? (
+                      <button
+                        type="button"
+                        onClick={() => onSort(col)}
+                        className="flex w-full items-center gap-1.5 text-left hover:text-text"
+                      >
+                        {headerInner}
+                      </button>
+                    ) : (
+                      <span className="flex items-center gap-1.5">{headerInner}</span>
+                    )}
+                  </th>
+                )
+              })}
             </tr>
           </thead>
           <tbody>
