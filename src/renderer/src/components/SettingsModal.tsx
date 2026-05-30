@@ -1,9 +1,18 @@
+import { Sun, Moon, Monitor } from 'lucide-react'
+import type { ThemeMode } from '@shared/types'
 import { useSettings } from '@renderer/store/settings'
+import { cn } from '@renderer/lib/cn'
 import { Modal } from './ui/Modal'
 import { Button } from './ui/Button'
 import { Slider } from './ui/Slider'
 import { ColorPicker } from './ui/ColorPicker'
 import { NoiseBackground } from './ui/NoiseBackground'
+
+const THEME_OPTIONS: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
+  { value: 'light', label: 'Light', icon: Sun },
+  { value: 'dark', label: 'Dark', icon: Moon },
+  { value: 'system', label: 'System', icon: Monitor }
+]
 
 /** Upper bound for the noise overlay opacity. The slider works in 0..100%. */
 const MAX_NOISE = 0.2
@@ -27,6 +36,8 @@ interface SettingsModalProps {
 export function SettingsModal({ open, onClose }: SettingsModalProps): React.JSX.Element {
   const sidebar = useSettings((s) => s.settings.sidebar)
   const setSidebar = useSettings((s) => s.setSidebar)
+  const themeMode = useSettings((s) => s.settings.themeMode)
+  const setThemeMode = useSettings((s) => s.setThemeMode)
 
   return (
     <Modal
@@ -40,6 +51,28 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): React.JSX.
       }
     >
       <div className="flex flex-col gap-5">
+        <section className="flex flex-col gap-2.5">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-faint">Theme</h3>
+          <div className="flex gap-1 rounded-lg border border-border bg-surface-2 p-1">
+            {THEME_OPTIONS.map(({ value, label, icon: Icon }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => void setThemeMode(value)}
+                className={cn(
+                  'flex flex-1 items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-medium transition-colors',
+                  themeMode === value
+                    ? 'bg-accent text-white'
+                    : 'text-muted hover:bg-surface-3 hover:text-text'
+                )}
+              >
+                <Icon size={14} />
+                {label}
+              </button>
+            ))}
+          </div>
+        </section>
+
         <section className="flex flex-col gap-2.5">
           <h3 className="text-xs font-semibold uppercase tracking-wider text-faint">
             Sidebar background

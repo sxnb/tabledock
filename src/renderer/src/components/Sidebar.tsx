@@ -6,7 +6,7 @@ import { useConnections } from '@renderer/store/connections'
 import { useWorkspace } from '@renderer/store/workspace'
 import { useSettings } from '@renderer/store/settings'
 import { cn } from '@renderer/lib/cn'
-import { darken } from '@renderer/lib/color'
+import { darken, contrastText } from '@renderer/lib/color'
 import { Button } from './ui/Button'
 import { IconButton } from './ui/IconButton'
 import { NoiseBackground } from './ui/NoiseBackground'
@@ -29,9 +29,11 @@ export function Sidebar({ onNew, onEdit }: SidebarProps): React.JSX.Element {
 
   // When a custom sidebar background is set, make elements legible over it:
   // the selected row uses a darker variant of the background at 50% alpha (with
-  // a shadow), and otherwise-bare labels get a dark translucent backing.
+  // a shadow), and text switches to black or white for contrast with the color.
   const themed = Boolean(sidebarBg.color)
   const activeBg = sidebarBg.color ? `${darken(sidebarBg.color, 0.38)}80` : null
+  const fg = themed ? contrastText(sidebarBg.color as string) : null
+  const fgSoft = fg ? `${fg}b3` : undefined
 
   const onDelete = async (config: ConnectionConfig): Promise<void> => {
     if (sessions[config.id]) await closeConnection(config.id)
@@ -46,22 +48,28 @@ export function Sidebar({ onNew, onEdit }: SidebarProps): React.JSX.Element {
           <div className="grid h-7 w-7 place-items-center rounded-md bg-gradient-to-br from-accent to-blue text-white shadow-[0_0_12px_rgba(139,123,255,0.5)]">
             <DatabaseIcon size={15} />
           </div>
-          <span className="text-sm font-semibold tracking-tight text-text">DataDock</span>
+          <span
+            className="text-sm font-semibold tracking-tight text-text"
+            style={fg ? { color: fg } : undefined}
+          >
+            DataDock
+          </span>
         </header>
 
         <div className="mt-1 flex-1 overflow-y-auto px-2 pb-3">
           <div className="px-2 py-1.5">
             <span
-              className={cn(
-                'text-[10px] font-semibold uppercase tracking-wider text-faint',
-                themed && 'rounded bg-black/30 px-1.5 py-0.5 text-muted'
-              )}
+              className="text-[10px] font-semibold uppercase tracking-wider text-faint"
+              style={fg ? { color: fgSoft } : undefined}
             >
               Connections
             </span>
           </div>
           {connections.length === 0 && (
-            <p className="px-2 py-3 text-xs leading-relaxed text-faint">
+            <p
+              className="px-2 py-3 text-xs leading-relaxed text-faint"
+              style={fg ? { color: fgSoft } : undefined}
+            >
               No saved connections yet. Create one to get started.
             </p>
           )}
@@ -99,14 +107,17 @@ export function Sidebar({ onNew, onEdit }: SidebarProps): React.JSX.Element {
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
-                        <span className="truncate text-[13px] text-text">{config.name}</span>
+                        <span
+                          className="truncate text-[13px] text-text"
+                          style={fg ? { color: fg } : undefined}
+                        >
+                          {config.name}
+                        </span>
                         {session && <StatusDot status={session.status} />}
                       </div>
                       <div
-                        className={cn(
-                          'truncate text-[11px]',
-                          themed ? 'text-text/60' : 'text-faint'
-                        )}
+                        className="truncate text-[11px] text-faint"
+                        style={fg ? { color: fgSoft } : undefined}
                       >
                         {connSubtitle(config)}
                       </div>
@@ -115,6 +126,7 @@ export function Sidebar({ onNew, onEdit }: SidebarProps): React.JSX.Element {
                       <IconButton
                         label="Edit"
                         className="h-6 w-6"
+                        style={fg ? { color: fgSoft } : undefined}
                         onMouseDown={(e) => {
                           e.stopPropagation()
                           onEdit(config)
@@ -125,6 +137,7 @@ export function Sidebar({ onNew, onEdit }: SidebarProps): React.JSX.Element {
                       <IconButton
                         label="Delete"
                         className="h-6 w-6 hover:text-danger"
+                        style={fg ? { color: fgSoft } : undefined}
                         onMouseDown={(e) => {
                           e.stopPropagation()
                           void onDelete(config)
@@ -148,6 +161,7 @@ export function Sidebar({ onNew, onEdit }: SidebarProps): React.JSX.Element {
           <IconButton
             label="Settings"
             className="h-9 w-9 shrink-0"
+            style={fg ? { color: fgSoft } : undefined}
             onClick={() => setSettingsOpen(true)}
           >
             <Settings size={16} />

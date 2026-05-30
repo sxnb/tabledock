@@ -6,7 +6,8 @@ import type { AppSettings, IpcResult } from './db/types'
 /** Persisted app-wide settings, stored at <userData>/settings.json. */
 
 const DEFAULTS: AppSettings = {
-  sidebar: { color: null, noise: 0.15 }
+  sidebar: { color: null, noise: 0.15 },
+  themeMode: 'dark'
 }
 
 function storePath(): string {

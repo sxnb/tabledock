@@ -25,3 +25,11 @@ function mix(hex: string, target: RGB, amount: number): string {
 
 export const lighten = (hex: string, amount: number): string => mix(hex, [255, 255, 255], amount)
 export const darken = (hex: string, amount: number): string => mix(hex, [0, 0, 0], amount)
+
+/** Pick black or white for best contrast against a background color (YIQ). */
+export function contrastText(hex: string): '#000000' | '#ffffff' {
+  const rgb = hexToRgb(hex)
+  if (!rgb) return '#ffffff'
+  const yiq = (rgb[0] * 299 + rgb[1] * 587 + rgb[2] * 114) / 1000
+  return yiq >= 150 ? '#000000' : '#ffffff'
+}

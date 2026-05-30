@@ -23,6 +23,27 @@
   --font-mono: 'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, Monaco, monospace;
 }
 
+/* Light theme — overrides the dark token defaults when data-theme="light". */
+:root[data-theme='light'] {
+  --color-bg: #f4f5f8;
+  --color-surface: #ffffff;
+  --color-surface-2: #f0f1f5;
+  --color-surface-3: #e6e8ef;
+  --color-border: #dde0e8;
+  --color-border-strong: #c4c9d6;
+
+  --color-text: #1b1e2b;
+  --color-muted: #5b6076;
+  --color-faint: #9296a8;
+
+  --color-accent: #6d5dd3;
+  --color-accent-hover: #5d4dc0;
+  --color-accent-soft: #e8e4fb;
+  --color-blue: #3f6fd6;
+  --color-danger: #d83a4e;
+  --color-ok: #2f9e54;
+}
+
 @layer base {
   * {
     box-sizing: border-box;

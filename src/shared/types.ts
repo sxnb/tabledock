@@ -157,9 +157,13 @@ export interface SidebarSettings {
   noise: number
 }
 
+export type ThemeMode = 'light' | 'dark' | 'system'
+
 /** Persisted, app-wide user settings. */
 export interface AppSettings {
   sidebar: SidebarSettings
+  /** Color theme; 'system' follows the OS preference. */
+  themeMode: ThemeMode
 }
 
 /** A column as shown in the relation diagram. */
