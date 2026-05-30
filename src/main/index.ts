@@ -4,6 +4,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { registerDbIpc } from './db/ipc'
 import { registerStoreIpc } from './store'
+import { registerHistoryIpc } from './history'
 import { connectionManager } from './db/manager'
 
 function createWindow(): void {
@@ -55,6 +56,7 @@ app.whenReady().then(() => {
   // Register database + connection-store IPC handlers.
   registerDbIpc()
   registerStoreIpc()
+  registerHistoryIpc()
 
   createWindow()
 

@@ -40,7 +40,7 @@ interface WorkspaceState {
 
   setSelectedDatabase: (id: string, database: string) => void
   openTableTab: (id: string, table: string) => void
-  openQueryTab: (id: string) => void
+  openQueryTab: (id: string, initialSql?: string) => void
   openRelationsTab: (id: string) => void
   setActiveTab: (id: string, tabId: string) => void
   setTabSql: (id: string, tabId: string, sql: string) => void
@@ -140,14 +140,14 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
       return { ...s, tabs: [...s.tabs, tab], activeTabId: tab.id }
     }),
 
-  openQueryTab: (id) =>
+  openQueryTab: (id, initialSql) =>
     patchSession(set, id, (s) => {
       const count = s.tabs.filter((t) => t.kind === 'query').length
       const tab: Tab = {
         id: uid(),
         kind: 'query',
         title: count === 0 ? 'Query' : `Query ${count + 1}`,
-        sql: ''
+        sql: initialSql ?? ''
       }
       return { ...s, tabs: [...s.tabs, tab], activeTabId: tab.id }
     }),

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Table2, Terminal, Plus, Search, RefreshCw, Workflow } from 'lucide-react'
+import { Table2, Terminal, Plus, Search, RefreshCw, Workflow, History } from 'lucide-react'
 import type { Session } from '@renderer/store/workspace'
 import { useWorkspace } from '@renderer/store/workspace'
 import { Select } from '@renderer/components/ui/Select'
@@ -12,6 +12,7 @@ import { cn } from '@renderer/lib/cn'
 import { TableDataTab } from './TableDataTab'
 import { QueryTab } from './QueryTab'
 import { RelationsView } from './RelationsView'
+import { QueryHistoryPanel } from './QueryHistoryPanel'
 
 function tabIcon(kind: string): React.JSX.Element {
   if (kind === 'query') return <Terminal size={12} />
@@ -38,6 +39,7 @@ export function RelationalWorkspace({ session }: { session: Session }): React.JS
   const [databases, setDatabases] = useState<string[]>([])
   const [tables, setTables] = useState<string[]>([])
   const [loadingTables, setLoadingTables] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState('')
 
@@ -177,6 +179,13 @@ export function RelationalWorkspace({ session }: { session: Session }): React.JS
               <IconButton label="Relation diagram" onClick={() => openRelationsTab(session.id)}>
                 <Workflow size={15} />
               </IconButton>
+              <IconButton
+                label="Query history"
+                onClick={() => setHistoryOpen((o) => !o)}
+                className={cn(historyOpen && 'bg-surface-2 text-text')}
+              >
+                <History size={15} />
+              </IconButton>
               <IconButton label="New query tab" onClick={() => openQueryTab(session.id)}>
                 <Plus size={15} />
               </IconButton>
@@ -184,7 +193,7 @@ export function RelationalWorkspace({ session }: { session: Session }): React.JS
           }
         />
 
-        <div className="min-h-0 flex-1">
+        <div className="relative min-h-0 flex-1 overflow-hidden">
           {error && session.tabs.length === 0 ? (
             <EmptyState title="Couldn't load schema" description={error} />
           ) : !activeTab ? (
@@ -216,12 +225,23 @@ export function RelationalWorkspace({ session }: { session: Session }): React.JS
             <QueryTab
               key={activeTab.id}
               sessionId={sessionId}
+              connectionId={session.id}
               kind={session.config.kind}
               database={isSqlite ? undefined : session.selectedDatabase}
               sql={activeTab.sql ?? ''}
               onSqlChange={(value) => setTabSql(session.id, activeTab.id, value)}
             />
           )}
+
+          <QueryHistoryPanel
+            connectionId={session.id}
+            open={historyOpen}
+            onClose={() => setHistoryOpen(false)}
+            onSelect={(sql) => {
+              openQueryTab(session.id, sql)
+              setHistoryOpen(false)
+            }}
+          />
         </div>
       </div>
     </div>

@@ -108,6 +108,16 @@ export interface UpdateRowResult {
   affectedRows: number
 }
 
+/** A single executed-query record in a connection's history. */
+export interface QueryHistoryEntry {
+  id: string
+  sql: string
+  /** Epoch milliseconds. */
+  executedAt: number
+  /** Whether the execution succeeded. */
+  ok: boolean
+}
+
 /** A column as shown in the relation diagram. */
 export interface SchemaColumn {
   name: string
@@ -184,6 +194,11 @@ export interface DataDockApi {
   }
   dialog: {
     openFile(options?: OpenFileOptions): Promise<string | null>
+  }
+  history: {
+    list(connectionId: string): Promise<QueryHistoryEntry[]>
+    add(connectionId: string, entry: { sql: string; ok: boolean }): Promise<void>
+    clear(connectionId: string): Promise<void>
   }
 }
 

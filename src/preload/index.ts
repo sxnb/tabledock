@@ -6,6 +6,7 @@ import type {
   GetRowsOptions,
   IpcResult,
   OpenFileOptions,
+  QueryHistoryEntry,
   QueryResult,
   RedisScanResult,
   RedisValue,
@@ -62,6 +63,13 @@ const api: DataDockApi = {
   dialog: {
     openFile: (options?: OpenFileOptions): Promise<string | null> =>
       invoke('dialog:openFile', options)
+  },
+  history: {
+    list: (connectionId: string): Promise<QueryHistoryEntry[]> =>
+      invoke('history:list', connectionId),
+    add: (connectionId: string, entry: { sql: string; ok: boolean }): Promise<void> =>
+      invoke('history:add', connectionId, entry),
+    clear: (connectionId: string): Promise<void> => invoke('history:clear', connectionId)
   }
 }
 

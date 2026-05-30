@@ -10,6 +10,8 @@ import { Spinner } from '@renderer/components/ui/Spinner'
 
 interface QueryTabProps {
   sessionId: string
+  /** Saved connection id — used to scope query history. */
+  connectionId: string
   kind: DriverKind
   database?: string
   /** Editor contents, owned by the workspace store so it survives tab switches. */
@@ -32,6 +34,7 @@ function dialectFor(kind: DriverKind): SQLDialect {
 
 export function QueryTab({
   sessionId,
+  connectionId,
   kind,
   database,
   sql: sqlText,
@@ -65,14 +68,17 @@ export function QueryTab({
     if (!sqlText.trim() || running) return
     setRunning(true)
     setError(null)
+    let ok = true
     try {
       const res = await window.api.db.query(sessionId, sqlText, database)
       setResult(res)
     } catch (err) {
+      ok = false
       setError(err instanceof Error ? err.message : String(err))
       setResult(null)
     } finally {
       setRunning(false)
+      void window.api.history.add(connectionId, { sql: sqlText, ok })
     }
   }
 
