@@ -8,6 +8,7 @@ import { IconButton } from '@renderer/components/ui/IconButton'
 import { Button } from '@renderer/components/ui/Button'
 import { Spinner } from '@renderer/components/ui/Spinner'
 import { EmptyState } from '@renderer/components/ui/EmptyState'
+import { ConfirmDialog } from '@renderer/components/ui/ConfirmDialog'
 import { cn } from '@renderer/lib/cn'
 import { TableDataTab } from './TableDataTab'
 import { QueryTab } from './QueryTab'
@@ -40,6 +41,8 @@ export function RelationalWorkspace({ session }: { session: Session }): React.JS
   const [tables, setTables] = useState<string[]>([])
   const [loadingTables, setLoadingTables] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
+  // Pending database switch awaiting confirmation (set when tabs are open).
+  const [pendingDatabase, setPendingDatabase] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState('')
 
@@ -89,6 +92,24 @@ export function RelationalWorkspace({ session }: { session: Session }): React.JS
 
   const filtered = tables.filter((t) => t.toLowerCase().includes(filter.toLowerCase()))
 
+  // Switching databases invalidates open tabs (they reference the old DB), so
+  // close them all — confirming first when any are open.
+  const requestDatabaseChange = (next: string): void => {
+    if (next === session.selectedDatabase) return
+    if (session.tabs.length === 0) {
+      setSelectedDatabase(session.id, next)
+    } else {
+      setPendingDatabase(next)
+    }
+  }
+
+  const confirmDatabaseChange = (): void => {
+    if (pendingDatabase === null) return
+    closeAllTabs(session.id)
+    setSelectedDatabase(session.id, pendingDatabase)
+    setPendingDatabase(null)
+  }
+
   const activeTab = session.tabs.find((t) => t.id === session.activeTabId) ?? null
   const tabItems: TabItem[] = session.tabs.map((t) => ({
     id: t.id,
@@ -104,7 +125,7 @@ export function RelationalWorkspace({ session }: { session: Session }): React.JS
           <div className="border-b border-border p-2.5">
             <Select
               value={session.selectedDatabase ?? ''}
-              onChange={(e) => setSelectedDatabase(session.id, e.target.value)}
+              onChange={(e) => requestDatabaseChange(e.target.value)}
             >
               {databases.length === 0 && <option value="">(no databases)</option>}
               {databases.map((db) => (
@@ -244,6 +265,15 @@ export function RelationalWorkspace({ session }: { session: Session }): React.JS
           />
         </div>
       </div>
+
+      <ConfirmDialog
+        open={pendingDatabase !== null}
+        title="Change database?"
+        description={`Switching to "${pendingDatabase}" will close all open tabs for this connection.`}
+        confirmLabel="Change & close tabs"
+        onConfirm={confirmDatabaseChange}
+        onCancel={() => setPendingDatabase(null)}
+      />
     </div>
   )
 }
