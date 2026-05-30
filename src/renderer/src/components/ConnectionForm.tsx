@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FolderOpen, CheckCircle2, XCircle, Check, Ban } from 'lucide-react'
+import { FolderOpen, CheckCircle2, XCircle } from 'lucide-react'
 import type {
   ConnectionConfig,
   DriverKind,
@@ -9,13 +9,13 @@ import type {
 } from '@shared/types'
 import { KIND_META, KIND_ORDER } from '@renderer/lib/kinds'
 import { useConnections } from '@renderer/store/connections'
-import { cn } from '@renderer/lib/cn'
 import { Modal } from './ui/Modal'
 import { Button } from './ui/Button'
 import { Input } from './ui/Input'
 import { Select } from './ui/Select'
 import { Spinner } from './ui/Spinner'
 import { Toggle } from './ui/Toggle'
+import { ColorPicker } from './ui/ColorPicker'
 
 const COLOR_PRESETS = [
   '#8b7bff',
@@ -189,7 +189,15 @@ export function ConnectionForm({ open, editing, onClose }: ConnectionFormProps):
           ))}
         </Select>
 
-        <ColorPicker value={draft.color} onChange={(color) => set({ color })} />
+        <div className="flex flex-col gap-1.5">
+          <span className="text-xs font-medium text-muted">Color</span>
+          <ColorPicker
+            value={draft.color ?? null}
+            presets={COLOR_PRESETS}
+            allowCustom
+            onChange={(color) => set({ color: color ?? undefined })}
+          />
+        </div>
 
         {draft.kind === 'sqlite' ? (
           <div className="flex flex-col gap-1.5">
@@ -280,48 +288,6 @@ export function ConnectionForm({ open, editing, onClose }: ConnectionFormProps):
         )}
       </div>
     </Modal>
-  )
-}
-
-function ColorPicker({
-  value,
-  onChange
-}: {
-  value?: string
-  onChange: (color: string | undefined) => void
-}): React.JSX.Element {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <span className="text-xs font-medium text-muted">Color</span>
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          title="No color"
-          onClick={() => onChange(undefined)}
-          className={cn(
-            'grid h-6 w-6 place-items-center rounded-full border border-border text-faint transition-colors hover:text-text',
-            !value && 'ring-2 ring-accent ring-offset-2 ring-offset-surface'
-          )}
-        >
-          <Ban size={12} />
-        </button>
-        {COLOR_PRESETS.map((color) => (
-          <button
-            key={color}
-            type="button"
-            title={color}
-            onClick={() => onChange(color)}
-            style={{ background: color }}
-            className={cn(
-              'grid h-6 w-6 place-items-center rounded-full transition-transform hover:scale-110',
-              value === color && 'ring-2 ring-white/80 ring-offset-2 ring-offset-surface'
-            )}
-          >
-            {value === color && <Check size={12} className="text-black/70" />}
-          </button>
-        ))}
-      </div>
-    </div>
   )
 }
 

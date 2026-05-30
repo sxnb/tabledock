@@ -6,6 +6,7 @@ import { registerDbIpc } from './db/ipc'
 import { registerStoreIpc } from './store'
 import { registerHistoryIpc } from './history'
 import { registerSettingsIpc } from './settings'
+import { registerHapticsIpc } from './haptics'
 import { connectionManager } from './db/manager'
 
 function createWindow(): void {
@@ -59,6 +60,7 @@ app.whenReady().then(() => {
   registerStoreIpc()
   registerHistoryIpc()
   registerSettingsIpc()
+  registerHapticsIpc()
 
   createWindow()
 

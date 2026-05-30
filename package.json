@@ -70,5 +70,8 @@
       "electron",
       "esbuild"
     ]
+  },
+  "optionalDependencies": {
+    "node-mac-haptics": "^1.0.0"
   }
 }

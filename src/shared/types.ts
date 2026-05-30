@@ -236,6 +236,10 @@ export interface DataDockApi {
     get(): Promise<AppSettings>
     set(settings: AppSettings): Promise<void>
   }
+  haptics: {
+    /** Trigger a trackpad "level change" haptic (macOS only; no-op elsewhere). */
+    tap(): void
+  }
 }
 
 export interface OpenFileOptions {

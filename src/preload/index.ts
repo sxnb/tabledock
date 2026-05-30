@@ -75,6 +75,9 @@ const api: DataDockApi = {
   settings: {
     get: (): Promise<AppSettings> => invoke('settings:get'),
     set: (settings: AppSettings): Promise<void> => invoke('settings:set', settings)
+  },
+  haptics: {
+    tap: (): void => ipcRenderer.send('haptics:tap')
   }
 }
 
