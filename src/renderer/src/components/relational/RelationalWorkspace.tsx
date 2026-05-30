@@ -205,6 +205,7 @@ export function RelationalWorkspace({ session }: { session: Session }): React.JS
             <QueryTab
               key={activeTab.id}
               sessionId={sessionId}
+              kind={session.config.kind}
               database={isSqlite ? undefined : session.selectedDatabase}
             />
           )}

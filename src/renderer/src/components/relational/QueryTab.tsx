@@ -1,23 +1,57 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import CodeMirror from '@uiw/react-codemirror'
-import { sql } from '@codemirror/lang-sql'
+import { sql, MySQL, PostgreSQL, SQLite, StandardSQL, type SQLDialect } from '@codemirror/lang-sql'
 import { oneDark } from '@codemirror/theme-one-dark'
 import { Play, AlertTriangle, CheckCircle2 } from 'lucide-react'
-import type { QueryResult } from '@shared/types'
+import type { DriverKind, QueryResult } from '@shared/types'
 import { DataTable } from '@renderer/components/ui/DataTable'
 import { Button } from '@renderer/components/ui/Button'
 import { Spinner } from '@renderer/components/ui/Spinner'
 
 interface QueryTabProps {
   sessionId: string
+  kind: DriverKind
   database?: string
 }
 
-export function QueryTab({ sessionId, database }: QueryTabProps): React.JSX.Element {
+function dialectFor(kind: DriverKind): SQLDialect {
+  switch (kind) {
+    case 'mysql':
+      return MySQL
+    case 'postgres':
+      return PostgreSQL
+    case 'sqlite':
+      return SQLite
+    default:
+      return StandardSQL
+  }
+}
+
+export function QueryTab({ sessionId, kind, database }: QueryTabProps): React.JSX.Element {
   const [sqlText, setSqlText] = useState('SELECT 1;')
   const [result, setResult] = useState<QueryResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [running, setRunning] = useState(false)
+  // Schema for autocomplete: { tableName: [columnName, ...] }.
+  const [schema, setSchema] = useState<Record<string, string[]>>({})
+
+  useEffect(() => {
+    let cancelled = false
+    window.api.db
+      .schemaGraph(sessionId, database)
+      .then((g) => {
+        if (cancelled) return
+        setSchema(Object.fromEntries(g.tables.map((t) => [t.name, t.columns.map((c) => c.name)])))
+      })
+      .catch(() => {
+        if (!cancelled) setSchema({})
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [sessionId, database])
+
+  const extensions = useMemo(() => [sql({ dialect: dialectFor(kind), schema })], [kind, schema])
 
   const run = async (): Promise<void> => {
     if (!sqlText.trim() || running) return
@@ -59,7 +93,7 @@ export function QueryTab({ sessionId, database }: QueryTabProps): React.JSX.Elem
           onChange={setSqlText}
           height="180px"
           theme={oneDark}
-          extensions={[sql()]}
+          extensions={extensions}
           basicSetup={{ highlightActiveLine: true, foldGutter: false }}
         />
       </div>
