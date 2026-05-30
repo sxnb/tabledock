@@ -17,15 +17,16 @@ import { Spinner } from './ui/Spinner'
 import { Toggle } from './ui/Toggle'
 import { ColorPicker } from './ui/ColorPicker'
 
+// Darker, flat (muted) tones used to tag connections.
 const COLOR_PRESETS = [
-  '#8b7bff',
-  '#5b8cff',
-  '#22d3ee',
-  '#4ade80',
-  '#fbbf24',
-  '#fb923c',
-  '#ff6b81',
-  '#f472b6'
+  '#574f8a', // indigo
+  '#3e5c82', // slate blue
+  '#2f6d68', // teal
+  '#3f7050', // green
+  '#8a6f3a', // ochre
+  '#9a5a3c', // terracotta
+  '#93454e', // maroon
+  '#834f6c' // plum
 ]
 
 interface ConnectionFormProps {
