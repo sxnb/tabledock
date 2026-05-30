@@ -58,6 +58,7 @@ export function RedisWorkspace({ session }: { session: Session }): React.JSX.Ele
 
   const selectKey = async (key: string): Promise<void> => {
     setSelectedKey(key)
+    setView('browser')
     setLoadingValue(true)
     try {
       setValue(await window.api.redis.get(sessionId, key))
