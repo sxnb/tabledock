@@ -6,6 +6,10 @@ import { cn } from '@renderer/lib/cn'
 import { Button } from './Button'
 import { Spinner } from './Spinner'
 
+const ROW_NUM_W = 48
+const DEFAULT_COL_W = 180
+const MIN_COL_W = 60
+
 export interface DataTableEditing {
   columnsMeta: ColumnMeta[]
   primaryKeys: string[]
@@ -80,6 +84,29 @@ export function DataTable({
 
   const editable = Boolean(editing) && (editing?.primaryKeys.length ?? 0) > 0
 
+  // Per-column widths (px), keyed by name; unset columns use the default.
+  const [widths, setWidths] = useState<Record<string, number>>({})
+  const widthOf = (col: string): number => widths[col] ?? DEFAULT_COL_W
+  const totalWidth = ROW_NUM_W + columns.reduce((sum, c) => sum + widthOf(c), 0)
+
+  const startResize = (e: React.MouseEvent, col: string): void => {
+    e.preventDefault()
+    e.stopPropagation()
+    const startX = e.clientX
+    const startW = widthOf(col)
+    const onMove = (ev: MouseEvent): void => {
+      setWidths((prev) => ({ ...prev, [col]: Math.max(MIN_COL_W, startW + (ev.clientX - startX)) }))
+    }
+    const onUp = (): void => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+      document.body.style.cursor = ''
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    document.body.style.cursor = 'col-resize'
+  }
+
   const cancel = (): void => {
     setEdit(null)
     setError(null)
@@ -129,29 +156,40 @@ export function DataTable({
   return (
     <div className="flex h-full flex-col">
       <div className="min-h-0 flex-1 overflow-auto">
-        <table className="w-full border-collapse text-left font-mono text-xs">
+        <table
+          className="table-fixed border-collapse text-left font-mono text-xs"
+          style={{ width: totalWidth }}
+        >
+          <colgroup>
+            <col style={{ width: ROW_NUM_W }} />
+            {columns.map((col, i) => (
+              <col key={i} style={{ width: widthOf(col) }} />
+            ))}
+          </colgroup>
           <thead className="sticky top-0 z-10">
             <tr>
-              <th className="sticky left-0 z-20 w-12 border-b border-r border-border bg-surface-3 px-2 py-1.5 text-right font-medium text-faint">
+              <th className="sticky left-0 z-20 border-b border-r border-border bg-surface-3 px-2 py-1.5 text-right font-medium text-faint">
                 #
               </th>
               {columns.map((col, i) => {
                 const sorted = sort?.column === col ? sort.direction : null
                 const headerInner = (
                   <>
-                    <span className="truncate">{col}</span>
+                    <span className="min-w-0 truncate">{col}</span>
                     {metaByName.get(col)?.isPrimaryKey && (
-                      <span className="text-[9px] text-accent">PK</span>
+                      <span className="shrink-0 text-[9px] text-accent">PK</span>
                     )}
-                    {sorted === 'asc' && <ChevronUp size={12} className="text-accent" />}
-                    {sorted === 'desc' && <ChevronDown size={12} className="text-accent" />}
+                    {sorted === 'asc' && <ChevronUp size={12} className="shrink-0 text-accent" />}
+                    {sorted === 'desc' && (
+                      <ChevronDown size={12} className="shrink-0 text-accent" />
+                    )}
                   </>
                 )
                 return (
                   <th
                     key={i}
                     className={cn(
-                      'whitespace-nowrap border-b border-r border-border bg-surface-3 px-3 py-1.5 font-semibold',
+                      'relative overflow-hidden border-b border-r border-border bg-surface-3 font-semibold',
                       sorted ? 'text-text' : 'text-muted'
                     )}
                   >
@@ -159,13 +197,17 @@ export function DataTable({
                       <button
                         type="button"
                         onClick={() => onSort(col)}
-                        className="flex w-full items-center gap-1.5 text-left hover:text-text"
+                        className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left hover:text-text"
                       >
                         {headerInner}
                       </button>
                     ) : (
-                      <span className="flex items-center gap-1.5">{headerInner}</span>
+                      <span className="flex items-center gap-1.5 px-3 py-1.5">{headerInner}</span>
                     )}
+                    <div
+                      onMouseDown={(e) => startResize(e, col)}
+                      className="absolute right-0 top-0 z-10 h-full w-1.5 cursor-col-resize hover:bg-accent/60"
+                    />
                   </th>
                 )
               })}
@@ -209,7 +251,7 @@ export function DataTable({
                         title={text}
                         onDoubleClick={() => startEdit(ri, ci, column, cell)}
                         className={cn(
-                          'max-w-[420px] truncate border-b border-r border-border px-3 py-1.5',
+                          'truncate border-b border-r border-border px-3 py-1.5',
                           editable && 'cursor-text',
                           kind === 'null' ? 'italic text-faint' : 'text-text'
                         )}

@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ChevronLeft, ChevronRight, RefreshCw, AlertTriangle } from 'lucide-react'
-import type { RowsResult, SortSpec, TableMeta } from '@shared/types'
+import { ChevronLeft, ChevronRight, RefreshCw, AlertTriangle, Search, X } from 'lucide-react'
+import type { FilterOperator, FilterSpec, RowsResult, SortSpec, TableMeta } from '@shared/types'
 import { DataTable, type DataTableEditing } from '@renderer/components/ui/DataTable'
 import { IconButton } from '@renderer/components/ui/IconButton'
 import { Spinner } from '@renderer/components/ui/Spinner'
 import { Select } from '@renderer/components/ui/Select'
+import { Input } from '@renderer/components/ui/Input'
+import { Button } from '@renderer/components/ui/Button'
 
 interface TableDataTabProps {
   sessionId: string
@@ -14,10 +16,29 @@ interface TableDataTabProps {
 
 const PAGE_SIZES = [50, 100, 500]
 
+const FILTER_OPERATORS: { value: FilterOperator; label: string; noValue?: boolean }[] = [
+  { value: 'eq', label: '=' },
+  { value: 'neq', label: '≠' },
+  { value: 'gt', label: '>' },
+  { value: 'lt', label: '<' },
+  { value: 'gte', label: '≥' },
+  { value: 'lte', label: '≤' },
+  { value: 'contains', label: 'contains' },
+  { value: 'startsWith', label: 'starts with' },
+  { value: 'like', label: 'LIKE' },
+  { value: 'isNull', label: 'is null', noValue: true },
+  { value: 'isNotNull', label: 'is not null', noValue: true }
+]
+
 export function TableDataTab({ sessionId, table, database }: TableDataTabProps): React.JSX.Element {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(100)
   const [sort, setSort] = useState<SortSpec | null>(null)
+  const [filter, setFilter] = useState<FilterSpec | null>(null)
+  // Draft filter inputs (applied only when Search is clicked).
+  const [filterColumn, setFilterColumn] = useState('')
+  const [filterOp, setFilterOp] = useState<FilterOperator>('eq')
+  const [filterValue, setFilterValue] = useState('')
   const [result, setResult] = useState<RowsResult | null>(null)
   const [meta, setMeta] = useState<TableMeta | null>(null)
   const [loading, setLoading] = useState(false)
@@ -35,7 +56,8 @@ export function TableDataTab({ sessionId, table, database }: TableDataTabProps):
         page,
         pageSize,
         database,
-        sort: sort ?? undefined
+        sort: sort ?? undefined,
+        filter: filter ?? undefined
       })
       if (reqRef.current === reqId) setResult(res)
     } catch (err) {
@@ -43,7 +65,7 @@ export function TableDataTab({ sessionId, table, database }: TableDataTabProps):
     } finally {
       if (reqRef.current === reqId) setLoading(false)
     }
-  }, [sessionId, table, database, page, pageSize, sort])
+  }, [sessionId, table, database, page, pageSize, sort, filter])
 
   // Cycle a column's sort: unsorted → asc → desc → unsorted. Sorting resets to
   // page 1 since it reorders the whole result set, not just the visible page.
@@ -54,6 +76,25 @@ export function TableDataTab({ sessionId, table, database }: TableDataTabProps):
       if (prev.direction === 'asc') return { column, direction: 'desc' }
       return null
     })
+  }
+
+  const opNeedsNoValue = FILTER_OPERATORS.find((o) => o.value === filterOp)?.noValue ?? false
+
+  const applyFilter = (): void => {
+    setPage(1)
+    const column = filterColumn || result?.columns[0]
+    if (!column) return
+    if (!opNeedsNoValue && filterValue === '') {
+      setFilter(null)
+      return
+    }
+    setFilter({ column, operator: filterOp, value: filterValue })
+  }
+
+  const clearFilter = (): void => {
+    setPage(1)
+    setFilter(null)
+    setFilterValue('')
   }
 
   // Fetch rows whenever the target or pagination changes (external sync).
@@ -163,6 +204,54 @@ export function TableDataTab({ sessionId, table, database }: TableDataTabProps):
         <IconButton label="Refresh" onClick={() => void load()}>
           <RefreshCw size={13} />
         </IconButton>
+      </div>
+
+      {/* Filter row: column · operator · value · Search */}
+      <div className="flex items-center gap-2 border-b border-border bg-surface px-3 py-1.5">
+        <Select
+          className="h-7 w-auto pr-7 text-xs"
+          aria-label="Filter column"
+          value={filterColumn || (result?.columns[0] ?? '')}
+          onChange={(e) => setFilterColumn(e.target.value)}
+        >
+          {(result?.columns ?? []).map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </Select>
+        <Select
+          className="h-7 w-auto pr-7 text-xs"
+          aria-label="Filter operator"
+          value={filterOp}
+          onChange={(e) => setFilterOp(e.target.value as FilterOperator)}
+        >
+          {FILTER_OPERATORS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </Select>
+        <Input
+          className="h-7 min-w-0 flex-1 text-xs"
+          placeholder={opNeedsNoValue ? 'no value needed' : 'filter value'}
+          disabled={opNeedsNoValue}
+          value={filterValue}
+          onChange={(e) => setFilterValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') applyFilter()
+          }}
+        />
+        <Button size="sm" variant="primary" onClick={applyFilter}>
+          <Search size={13} />
+          Search
+        </Button>
+        {filter && (
+          <Button size="sm" variant="ghost" onClick={clearFilter}>
+            <X size={13} />
+            Clear
+          </Button>
+        )}
       </div>
 
       <div className="min-h-0 flex-1">

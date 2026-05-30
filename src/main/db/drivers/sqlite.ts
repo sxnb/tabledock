@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3'
 import { basename } from 'path'
+import { buildFilter } from '../filter'
 import type {
   ColumnMeta,
   ConnectionConfig,
@@ -59,20 +60,28 @@ export class SqliteDriver implements RelationalDriver {
   }
 
   async getRows(table: string, opts: GetRowsOptions): Promise<RowsResult> {
-    const { page, pageSize, sort } = opts
+    const { page, pageSize, sort, filter } = opts
     const offset = (page - 1) * pageSize
     const qualified = quoteIdent(table)
     const orderBy = sort
       ? ` ORDER BY ${quoteIdent(sort.column)} ${sort.direction === 'desc' ? 'DESC' : 'ASC'}`
       : ''
+    const where = filter ? buildFilter(filter, quoteIdent, () => '?') : null
+    const whereClause = where ? ` WHERE ${where.clause}` : ''
+    const whereParams = where ? where.params : []
 
-    const countRow = this.handle.prepare(`SELECT COUNT(*) AS total FROM ${qualified}`).get() as {
-      total: number
-    }
+    const countRow = this.handle
+      .prepare(`SELECT COUNT(*) AS total FROM ${qualified}${whereClause}`)
+      .get(...(whereParams as never[])) as { total: number }
     const total = Number(countRow?.total ?? 0)
 
-    const stmt = this.handle.prepare(`SELECT * FROM ${qualified}${orderBy} LIMIT ? OFFSET ?`)
-    const rows = stmt.all(pageSize, offset) as Record<string, unknown>[]
+    const stmt = this.handle.prepare(
+      `SELECT * FROM ${qualified}${whereClause}${orderBy} LIMIT ? OFFSET ?`
+    )
+    const rows = stmt.all(...([...whereParams, pageSize, offset] as never[])) as Record<
+      string,
+      unknown
+    >[]
     const columns = stmt.columns().map((c) => c.name)
     return {
       columns,

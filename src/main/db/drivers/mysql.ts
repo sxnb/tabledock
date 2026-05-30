@@ -1,5 +1,6 @@
 import mysql from 'mysql2/promise'
 import { buildTls } from '../ssl'
+import { buildFilter } from '../filter'
 import type {
   ColumnMeta,
   ConnectionConfig,
@@ -77,21 +78,25 @@ export class MySqlDriver implements RelationalDriver {
   }
 
   async getRows(table: string, opts: GetRowsOptions): Promise<RowsResult> {
-    const { page, pageSize, database, sort } = opts
+    const { page, pageSize, database, sort, filter } = opts
     const offset = (page - 1) * pageSize
     const qualified = database ? `${quoteIdent(database)}.${quoteIdent(table)}` : quoteIdent(table)
     const orderBy = sort
       ? ` ORDER BY ${quoteIdent(sort.column)} ${sort.direction === 'desc' ? 'DESC' : 'ASC'}`
       : ''
+    const where = filter ? buildFilter(filter, quoteIdent, () => '?') : null
+    const whereClause = where ? ` WHERE ${where.clause}` : ''
+    const whereParams = where ? where.params : []
 
     const [countRows] = await this.db.query<mysql.RowDataPacket[]>(
-      `SELECT COUNT(*) AS total FROM ${qualified}`
+      `SELECT COUNT(*) AS total FROM ${qualified}${whereClause}`,
+      whereParams
     )
     const total = Number(countRows[0]?.total ?? 0)
 
     const [rows, fields] = await this.db.query<mysql.RowDataPacket[]>(
-      `SELECT * FROM ${qualified}${orderBy} LIMIT ? OFFSET ?`,
-      [pageSize, offset]
+      `SELECT * FROM ${qualified}${whereClause}${orderBy} LIMIT ? OFFSET ?`,
+      [...whereParams, pageSize, offset]
     )
     const columns = fields.map((f) => f.name)
     return {

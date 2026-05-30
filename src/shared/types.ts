@@ -51,12 +51,33 @@ export interface SortSpec {
   direction: SortDirection
 }
 
+export type FilterOperator =
+  | 'eq'
+  | 'neq'
+  | 'gt'
+  | 'lt'
+  | 'gte'
+  | 'lte'
+  | 'contains'
+  | 'startsWith'
+  | 'like'
+  | 'isNull'
+  | 'isNotNull'
+
+export interface FilterSpec {
+  column: string
+  operator: FilterOperator
+  value: string
+}
+
 export interface GetRowsOptions {
   page: number
   pageSize: number
   database?: string
   /** Server-side ORDER BY applied to the page query. */
   sort?: SortSpec
+  /** Server-side WHERE filter applied to both the page and count queries. */
+  filter?: FilterSpec
 }
 
 export interface ColumnMeta {

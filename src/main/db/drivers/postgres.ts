@@ -1,5 +1,6 @@
 import pg from 'pg'
 import { buildTls } from '../ssl'
+import { buildFilter } from '../filter'
 import type {
   ColumnMeta,
   ConnectionConfig,
@@ -87,7 +88,7 @@ export class PostgresDriver implements RelationalDriver {
   }
 
   async getRows(table: string, opts: GetRowsOptions): Promise<RowsResult> {
-    const { page, pageSize, database, sort } = opts
+    const { page, pageSize, database, sort, filter } = opts
     const offset = (page - 1) * pageSize
     const pool = await this.poolFor(database || this.currentDatabase)
     const qualified = `${quoteIdent('public')}.${quoteIdent(table)}`
@@ -95,15 +96,22 @@ export class PostgresDriver implements RelationalDriver {
       ? ` ORDER BY ${quoteIdent(sort.column)} ${sort.direction === 'desc' ? 'DESC' : 'ASC'}`
       : ''
 
+    // Single $-counter shared by the WHERE clause and the LIMIT/OFFSET that follow.
+    let n = 0
+    const where = filter ? buildFilter(filter, quoteIdent, () => `$${++n}`) : null
+    const whereClause = where ? ` WHERE ${where.clause}` : ''
+    const whereParams = where ? where.params : []
+
     const countRes = await pool.query<{ total: string }>(
-      `SELECT COUNT(*) AS total FROM ${qualified}`
+      `SELECT COUNT(*) AS total FROM ${qualified}${whereClause}`,
+      whereParams
     )
     const total = Number(countRes.rows[0]?.total ?? 0)
 
-    const res = await pool.query(`SELECT * FROM ${qualified}${orderBy} LIMIT $1 OFFSET $2`, [
-      pageSize,
-      offset
-    ])
+    const res = await pool.query(
+      `SELECT * FROM ${qualified}${whereClause}${orderBy} LIMIT $${++n} OFFSET $${++n}`,
+      [...whereParams, pageSize, offset]
+    )
     const columns = res.fields.map((f) => f.name)
     return {
       columns,
