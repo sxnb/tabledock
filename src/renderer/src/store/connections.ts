@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { ConnectionConfig } from '@shared/types'
+import { useWorkspace } from './workspace'
 
 interface ConnectionsState {
   connections: ConnectionConfig[]
@@ -25,6 +26,8 @@ export const useConnections = create<ConnectionsState>((set) => ({
       else connections.push(saved)
       return { connections }
     })
+    // Keep any open session's metadata (name, color, …) in sync with the edit.
+    useWorkspace.getState().syncConfig(saved)
     return saved
   },
   remove: async (id) => {

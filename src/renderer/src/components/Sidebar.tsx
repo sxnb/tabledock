@@ -67,7 +67,10 @@ export function Sidebar({ onNew, onEdit }: SidebarProps): React.JSX.Element {
                 >
                   <span
                     className="grid h-6 w-6 shrink-0 place-items-center rounded"
-                    style={{ color: meta.color, background: `${meta.color}1a` }}
+                    style={{
+                      color: config.color ?? meta.color,
+                      background: `${config.color ?? meta.color}1a`
+                    }}
                   >
                     <Icon size={13} />
                   </span>

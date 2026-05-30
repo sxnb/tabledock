@@ -2,6 +2,14 @@
 
 export type DriverKind = 'mysql' | 'postgres' | 'redis' | 'sqlite'
 
+/** TLS/SSL settings; cert fields hold absolute paths to PEM files. */
+export interface SslConfig {
+  enabled: boolean
+  ca?: string
+  cert?: string
+  key?: string
+}
+
 export interface ConnectionConfig {
   id: string
   name: string
@@ -16,6 +24,10 @@ export interface ConnectionConfig {
   filePath?: string
   // Redis db index
   redisDb?: number
+  // TLS/SSL (MySQL, PostgreSQL, Redis)
+  ssl?: SslConfig
+  /** Optional accent color (hex) used to visually tag the connection. */
+  color?: string
 }
 
 export interface QueryResult {
@@ -141,6 +153,13 @@ export interface DataDockApi {
     command(sessionId: string, args: string[]): Promise<unknown>
   }
   dialog: {
-    openFile(): Promise<string | null>
+    openFile(options?: OpenFileOptions): Promise<string | null>
   }
+}
+
+export interface OpenFileOptions {
+  title?: string
+  filters?: { name: string; extensions: string[] }[]
+  /** Allow choosing/creating a not-yet-existing file (used for SQLite). */
+  allowCreate?: boolean
 }

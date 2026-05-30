@@ -33,6 +33,8 @@ interface WorkspaceState {
   openConnection: (config: ConnectionConfig) => Promise<void>
   closeConnection: (id: string) => Promise<void>
   setActiveSession: (id: string) => void
+  /** Refresh an open session's stored config after the connection is edited. */
+  syncConfig: (config: ConnectionConfig) => void
 
   setSelectedDatabase: (id: string, database: string) => void
   openTableTab: (id: string, table: string) => void
@@ -112,6 +114,13 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
   },
 
   setActiveSession: (id) => set({ activeSessionId: id }),
+
+  syncConfig: (config) =>
+    set((state) => {
+      const session = state.sessions[config.id]
+      if (!session) return {}
+      return { sessions: { ...state.sessions, [config.id]: { ...session, config } } }
+    }),
 
   setSelectedDatabase: (id, database) =>
     patchSession(set, id, (s) => ({ ...s, selectedDatabase: database })),

@@ -1,13 +1,26 @@
 import { useState } from 'react'
-import { FolderOpen, CheckCircle2, XCircle } from 'lucide-react'
-import type { ConnectionConfig, DriverKind } from '@shared/types'
+import { FolderOpen, CheckCircle2, XCircle, Check, Ban } from 'lucide-react'
+import type { ConnectionConfig, DriverKind, SslConfig } from '@shared/types'
 import { KIND_META, KIND_ORDER } from '@renderer/lib/kinds'
 import { useConnections } from '@renderer/store/connections'
+import { cn } from '@renderer/lib/cn'
 import { Modal } from './ui/Modal'
 import { Button } from './ui/Button'
 import { Input } from './ui/Input'
 import { Select } from './ui/Select'
 import { Spinner } from './ui/Spinner'
+import { Toggle } from './ui/Toggle'
+
+const COLOR_PRESETS = [
+  '#8b7bff',
+  '#5b8cff',
+  '#22d3ee',
+  '#4ade80',
+  '#fbbf24',
+  '#fb923c',
+  '#ff6b81',
+  '#f472b6'
+]
 
 interface ConnectionFormProps {
   open: boolean
@@ -28,7 +41,8 @@ function blankDraft(): Draft {
     password: '',
     database: '',
     filePath: '',
-    redisDb: 0
+    redisDb: 0,
+    ssl: { enabled: false }
   }
 }
 
@@ -57,9 +71,30 @@ export function ConnectionForm({ open, editing, onClose }: ConnectionFormProps):
     setTest({ status: 'idle' })
   }
 
-  const pickFile = async (): Promise<void> => {
-    const path = await window.api.dialog.openFile()
+  const setSsl = (patch: Partial<SslConfig>): void =>
+    setDraft((d) => ({ ...d, ssl: { ...(d.ssl ?? { enabled: false }), ...patch } }))
+
+  const pickDbFile = async (): Promise<void> => {
+    const path = await window.api.dialog.openFile({
+      title: 'Select or create a SQLite database file',
+      allowCreate: true,
+      filters: [
+        { name: 'SQLite', extensions: ['db', 'sqlite', 'sqlite3', 'db3'] },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    })
     if (path) set({ filePath: path })
+  }
+
+  const pickCert = async (field: 'ca' | 'cert' | 'key'): Promise<void> => {
+    const path = await window.api.dialog.openFile({
+      title: 'Select certificate file',
+      filters: [
+        { name: 'Certificates & Keys', extensions: ['pem', 'crt', 'cert', 'cer', 'key'] },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    })
+    if (path) setSsl({ [field]: path })
   }
 
   const runTest = async (): Promise<void> => {
@@ -131,6 +166,8 @@ export function ConnectionForm({ open, editing, onClose }: ConnectionFormProps):
           ))}
         </Select>
 
+        <ColorPicker value={draft.color} onChange={(color) => set({ color })} />
+
         {draft.kind === 'sqlite' ? (
           <div className="flex flex-col gap-1.5">
             <span className="text-xs font-medium text-muted">Database file</span>
@@ -140,7 +177,7 @@ export function ConnectionForm({ open, editing, onClose }: ConnectionFormProps):
                 value={draft.filePath ?? ''}
                 onChange={(e) => set({ filePath: e.target.value })}
               />
-              <Button variant="secondary" onClick={pickFile} className="shrink-0">
+              <Button variant="secondary" onClick={pickDbFile} className="shrink-0">
                 <FolderOpen size={14} />
                 Browse
               </Button>
@@ -202,10 +239,129 @@ export function ConnectionForm({ open, editing, onClose }: ConnectionFormProps):
                 />
               </>
             )}
+
+            <SslSection
+              ssl={draft.ssl}
+              onToggle={(enabled) => setSsl({ enabled })}
+              onPick={pickCert}
+              onChange={setSsl}
+            />
           </>
         )}
       </div>
     </Modal>
+  )
+}
+
+function ColorPicker({
+  value,
+  onChange
+}: {
+  value?: string
+  onChange: (color: string | undefined) => void
+}): React.JSX.Element {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-xs font-medium text-muted">Color</span>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          title="No color"
+          onClick={() => onChange(undefined)}
+          className={cn(
+            'grid h-6 w-6 place-items-center rounded-full border border-border text-faint transition-colors hover:text-text',
+            !value && 'ring-2 ring-accent ring-offset-2 ring-offset-surface'
+          )}
+        >
+          <Ban size={12} />
+        </button>
+        {COLOR_PRESETS.map((color) => (
+          <button
+            key={color}
+            type="button"
+            title={color}
+            onClick={() => onChange(color)}
+            style={{ background: color }}
+            className={cn(
+              'grid h-6 w-6 place-items-center rounded-full transition-transform hover:scale-110',
+              value === color && 'ring-2 ring-white/80 ring-offset-2 ring-offset-surface'
+            )}
+          >
+            {value === color && <Check size={12} className="text-black/70" />}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function SslSection({
+  ssl,
+  onToggle,
+  onPick,
+  onChange
+}: {
+  ssl?: SslConfig
+  onToggle: (enabled: boolean) => void
+  onPick: (field: 'ca' | 'cert' | 'key') => void
+  onChange: (patch: Partial<SslConfig>) => void
+}): React.JSX.Element {
+  const enabled = Boolean(ssl?.enabled)
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface-2/40 p-3">
+      <Toggle id="conn-ssl" label="Enable SSL" checked={enabled} onChange={onToggle} />
+      {enabled && (
+        <div className="flex flex-col gap-2.5">
+          <CertField
+            label="CA Certificate"
+            value={ssl?.ca}
+            onBrowse={() => onPick('ca')}
+            onChange={(v) => onChange({ ca: v })}
+          />
+          <CertField
+            label="Client Certificate"
+            value={ssl?.cert}
+            onBrowse={() => onPick('cert')}
+            onChange={(v) => onChange({ cert: v })}
+          />
+          <CertField
+            label="Client Key"
+            value={ssl?.key}
+            onBrowse={() => onPick('key')}
+            onChange={(v) => onChange({ key: v })}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function CertField({
+  label,
+  value,
+  onBrowse,
+  onChange
+}: {
+  label: string
+  value?: string
+  onBrowse: () => void
+  onChange: (value: string | undefined) => void
+}): React.JSX.Element {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-xs font-medium text-muted">{label}</span>
+      <div className="flex gap-2">
+        <Input
+          placeholder="(optional)"
+          value={value ?? ''}
+          onChange={(e) => onChange(e.target.value || undefined)}
+        />
+        <Button variant="secondary" onClick={onBrowse} className="shrink-0">
+          <FolderOpen size={14} />
+          Browse
+        </Button>
+      </div>
+    </div>
   )
 }
 

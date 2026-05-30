@@ -29,8 +29,9 @@ export function Workspace(): React.JSX.Element {
 
   const meta = KIND_META[session.config.kind]
 
+  let content: React.JSX.Element
   if (session.status === 'connecting') {
-    return (
+    content = (
       <div className="flex h-full flex-col items-center justify-center gap-3">
         <Spinner size={22} />
         <p className="text-xs text-muted">
@@ -38,10 +39,8 @@ export function Workspace(): React.JSX.Element {
         </p>
       </div>
     )
-  }
-
-  if (session.status === 'error') {
-    return (
+  } else if (session.status === 'error') {
+    content = (
       <EmptyState
         icon={<AlertTriangle size={28} className="text-danger" />}
         title="Connection failed"
@@ -54,11 +53,21 @@ export function Workspace(): React.JSX.Element {
         }
       />
     )
+  } else {
+    content = meta.relational ? (
+      <RelationalWorkspace session={session} />
+    ) : (
+      <RedisWorkspace session={session} />
+    )
   }
 
-  return meta.relational ? (
-    <RelationalWorkspace session={session} />
-  ) : (
-    <RedisWorkspace session={session} />
+  return (
+    <div className="flex h-full flex-col">
+      {/* Thin accent bar lets users identify the connection by its color. */}
+      {session.config.color && (
+        <div className="h-[3px] shrink-0" style={{ background: session.config.color }} />
+      )}
+      <div className="min-h-0 flex-1">{content}</div>
+    </div>
   )
 }

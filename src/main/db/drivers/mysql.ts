@@ -1,4 +1,5 @@
 import mysql from 'mysql2/promise'
+import { buildTls } from '../ssl'
 import type {
   ColumnMeta,
   ConnectionConfig,
@@ -29,6 +30,7 @@ export class MySqlDriver implements RelationalDriver {
   constructor(private readonly config: ConnectionConfig) {}
 
   async connect(): Promise<void> {
+    const tls = buildTls(this.config)
     this.pool = mysql.createPool({
       host: this.config.host || '127.0.0.1',
       port: this.config.port || 3306,
@@ -37,7 +39,8 @@ export class MySqlDriver implements RelationalDriver {
       database: this.config.database || undefined,
       connectionLimit: 4,
       waitForConnections: true,
-      multipleStatements: false
+      multipleStatements: false,
+      ...(tls ? { ssl: tls } : {})
     })
     // Validate credentials eagerly.
     const conn = await this.pool.getConnection()

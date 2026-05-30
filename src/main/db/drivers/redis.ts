@@ -1,4 +1,5 @@
 import Redis from 'ioredis'
+import { buildTls } from '../ssl'
 import type { ConnectionConfig, RedisDriverApi, RedisScanResult, RedisValue } from '../types'
 
 export class RedisDriver implements RedisDriverApi {
@@ -8,13 +9,15 @@ export class RedisDriver implements RedisDriverApi {
   constructor(private readonly config: ConnectionConfig) {}
 
   async connect(): Promise<void> {
+    const tls = buildTls(this.config)
     this.client = new Redis({
       host: this.config.host || '127.0.0.1',
       port: this.config.port || 6379,
       password: this.config.password || undefined,
       db: this.config.redisDb || 0,
       lazyConnect: true,
-      maxRetriesPerRequest: 1
+      maxRetriesPerRequest: 1,
+      ...(tls ? { tls } : {})
     })
     await this.client.connect()
     // Validate connection.

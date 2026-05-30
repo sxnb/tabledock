@@ -4,6 +4,7 @@ import { useConnections } from './store/connections'
 import { Sidebar } from './components/Sidebar'
 import { Workspace } from './components/Workspace'
 import { ConnectionForm } from './components/ConnectionForm'
+import { TooltipProvider } from './components/ui/Tooltip'
 
 function App(): React.JSX.Element {
   const load = useConnections((s) => s.load)
@@ -25,13 +26,15 @@ function App(): React.JSX.Element {
   }
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-bg text-text">
-      <Sidebar onNew={openNew} onEdit={openEdit} />
-      <main className="min-w-0 flex-1">
-        <Workspace />
-      </main>
-      <ConnectionForm open={formOpen} editing={editing} onClose={() => setFormOpen(false)} />
-    </div>
+    <TooltipProvider delayDuration={400} skipDelayDuration={200}>
+      <div className="flex h-screen w-screen overflow-hidden bg-bg text-text">
+        <Sidebar onNew={openNew} onEdit={openEdit} />
+        <main className="min-w-0 flex-1">
+          <Workspace />
+        </main>
+        <ConnectionForm open={formOpen} editing={editing} onClose={() => setFormOpen(false)} />
+      </div>
+    </TooltipProvider>
   )
 }
 

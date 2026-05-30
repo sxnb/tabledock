@@ -6,6 +6,7 @@ import {
   type ConnectionConfig,
   type GetRowsOptions,
   type IpcResult,
+  type OpenFileOptions,
   type RedisDriverApi,
   type RelationalDriver,
   type UpdateRowParams
@@ -72,21 +73,20 @@ export function registerDbIpc(): void {
   handle('redis:get', (sessionId: string, key: string) => redis(sessionId).getKey(key))
   handle('redis:command', (sessionId: string, args: string[]) => redis(sessionId).runCommand(args))
 
-  // File picker for SQLite database files
-  handle('dialog:openFile', async () => {
+  // Generic file picker (SQLite database files, TLS certificates, …).
+  handle('dialog:openFile', async (options?: OpenFileOptions) => {
+    const properties: Electron.OpenDialogOptions['properties'] = options?.allowCreate
+      ? ['openFile', 'createDirectory', 'promptToCreate']
+      : ['openFile']
+    const dialogOptions: Electron.OpenDialogOptions = {
+      title: options?.title,
+      properties,
+      filters: options?.filters ?? [{ name: 'All Files', extensions: ['*'] }]
+    }
     const win = BrowserWindow.getFocusedWindow() ?? undefined
     const result = win
-      ? await dialog.showOpenDialog(win, openOptions)
-      : await dialog.showOpenDialog(openOptions)
+      ? await dialog.showOpenDialog(win, dialogOptions)
+      : await dialog.showOpenDialog(dialogOptions)
     return result.canceled ? null : (result.filePaths[0] ?? null)
   })
-}
-
-const openOptions: Electron.OpenDialogOptions = {
-  title: 'Select or create a SQLite database file',
-  properties: ['openFile', 'createDirectory', 'promptToCreate'],
-  filters: [
-    { name: 'SQLite', extensions: ['db', 'sqlite', 'sqlite3', 'db3'] },
-    { name: 'All Files', extensions: ['*'] }
-  ]
 }

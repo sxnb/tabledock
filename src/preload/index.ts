@@ -5,6 +5,7 @@ import type {
   DataDockApi,
   GetRowsOptions,
   IpcResult,
+  OpenFileOptions,
   QueryResult,
   RedisScanResult,
   RedisValue,
@@ -59,7 +60,8 @@ const api: DataDockApi = {
       invoke('redis:command', sessionId, args)
   },
   dialog: {
-    openFile: (): Promise<string | null> => invoke('dialog:openFile')
+    openFile: (options?: OpenFileOptions): Promise<string | null> =>
+      invoke('dialog:openFile', options)
   }
 }
 

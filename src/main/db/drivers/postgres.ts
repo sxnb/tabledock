@@ -1,4 +1,5 @@
 import pg from 'pg'
+import { buildTls } from '../ssl'
 import type {
   ColumnMeta,
   ConnectionConfig,
@@ -51,13 +52,15 @@ export class PostgresDriver implements RelationalDriver {
     if (this.pool && this.currentDatabase === database) return this.pool
     if (this.pool) await this.pool.end()
     this.currentDatabase = database
+    const tls = buildTls(this.config)
     this.pool = new pg.Pool({
       host: this.config.host || '127.0.0.1',
       port: this.config.port || 5432,
       user: this.config.user || 'postgres',
       password: this.config.password || undefined,
       database,
-      max: 4
+      max: 4,
+      ...(tls ? { ssl: tls } : {})
     })
     // Validate eagerly.
     const client = await this.pool.connect()
