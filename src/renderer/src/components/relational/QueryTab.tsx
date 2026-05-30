@@ -12,6 +12,9 @@ interface QueryTabProps {
   sessionId: string
   kind: DriverKind
   database?: string
+  /** Editor contents, owned by the workspace store so it survives tab switches. */
+  sql: string
+  onSqlChange: (sql: string) => void
 }
 
 function dialectFor(kind: DriverKind): SQLDialect {
@@ -27,8 +30,13 @@ function dialectFor(kind: DriverKind): SQLDialect {
   }
 }
 
-export function QueryTab({ sessionId, kind, database }: QueryTabProps): React.JSX.Element {
-  const [sqlText, setSqlText] = useState('SELECT 1;')
+export function QueryTab({
+  sessionId,
+  kind,
+  database,
+  sql: sqlText,
+  onSqlChange
+}: QueryTabProps): React.JSX.Element {
   const [result, setResult] = useState<QueryResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [running, setRunning] = useState(false)
@@ -90,7 +98,7 @@ export function QueryTab({ sessionId, kind, database }: QueryTabProps): React.JS
       <div className="min-h-0 shrink-0 border-b border-border" onKeyDown={onKeyDown}>
         <CodeMirror
           value={sqlText}
-          onChange={setSqlText}
+          onChange={onSqlChange}
           height="180px"
           theme={oneDark}
           extensions={extensions}

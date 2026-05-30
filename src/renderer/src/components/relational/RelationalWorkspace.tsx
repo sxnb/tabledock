@@ -28,7 +28,12 @@ export function RelationalWorkspace({ session }: { session: Session }): React.JS
   const openQueryTab = useWorkspace((s) => s.openQueryTab)
   const openRelationsTab = useWorkspace((s) => s.openRelationsTab)
   const setActiveTab = useWorkspace((s) => s.setActiveTab)
+  const setTabSql = useWorkspace((s) => s.setTabSql)
   const closeTab = useWorkspace((s) => s.closeTab)
+  const duplicateTab = useWorkspace((s) => s.duplicateTab)
+  const closeTabsToLeft = useWorkspace((s) => s.closeTabsToLeft)
+  const closeTabsToRight = useWorkspace((s) => s.closeTabsToRight)
+  const closeAllTabs = useWorkspace((s) => s.closeAllTabs)
 
   const [databases, setDatabases] = useState<string[]>([])
   const [tables, setTables] = useState<string[]>([])
@@ -161,6 +166,12 @@ export function RelationalWorkspace({ session }: { session: Session }): React.JS
           activeId={session.activeTabId}
           onSelect={(id) => setActiveTab(session.id, id)}
           onClose={(id) => closeTab(session.id, id)}
+          menu={{
+            onDuplicate: (id) => duplicateTab(session.id, id),
+            onCloseLeft: (id) => closeTabsToLeft(session.id, id),
+            onCloseRight: (id) => closeTabsToRight(session.id, id),
+            onCloseAll: () => closeAllTabs(session.id)
+          }}
           trailing={
             <div className="flex items-center">
               <IconButton label="Relation diagram" onClick={() => openRelationsTab(session.id)}>
@@ -207,6 +218,8 @@ export function RelationalWorkspace({ session }: { session: Session }): React.JS
               sessionId={sessionId}
               kind={session.config.kind}
               database={isSqlite ? undefined : session.selectedDatabase}
+              sql={activeTab.sql ?? ''}
+              onSqlChange={(value) => setTabSql(session.id, activeTab.id, value)}
             />
           )}
         </div>

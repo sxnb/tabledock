@@ -9,6 +9,8 @@ export interface Tab {
   title: string
   /** Table name for table tabs. */
   table?: string
+  /** Editor contents for query tabs (kept here so it survives tab switches). */
+  sql?: string
 }
 
 export interface Session {
@@ -41,7 +43,12 @@ interface WorkspaceState {
   openQueryTab: (id: string) => void
   openRelationsTab: (id: string) => void
   setActiveTab: (id: string, tabId: string) => void
+  setTabSql: (id: string, tabId: string, sql: string) => void
+  duplicateTab: (id: string, tabId: string) => void
   closeTab: (id: string, tabId: string) => void
+  closeTabsToLeft: (id: string, tabId: string) => void
+  closeTabsToRight: (id: string, tabId: string) => void
+  closeAllTabs: (id: string) => void
 }
 
 const uid = (): string => crypto.randomUUID()
@@ -139,7 +146,8 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
       const tab: Tab = {
         id: uid(),
         kind: 'query',
-        title: count === 0 ? 'Query' : `Query ${count + 1}`
+        title: count === 0 ? 'Query' : `Query ${count + 1}`,
+        sql: ''
       }
       return { ...s, tabs: [...s.tabs, tab], activeTabId: tab.id }
     }),
@@ -154,6 +162,21 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
 
   setActiveTab: (id, tabId) => patchSession(set, id, (s) => ({ ...s, activeTabId: tabId })),
 
+  setTabSql: (id, tabId, sql) =>
+    patchSession(set, id, (s) => ({
+      ...s,
+      tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, sql } : t))
+    })),
+
+  duplicateTab: (id, tabId) =>
+    patchSession(set, id, (s) => {
+      const idx = s.tabs.findIndex((t) => t.id === tabId)
+      if (idx < 0) return s
+      const copy: Tab = { ...s.tabs[idx], id: uid() }
+      const tabs = [...s.tabs.slice(0, idx + 1), copy, ...s.tabs.slice(idx + 1)]
+      return { ...s, tabs, activeTabId: copy.id }
+    }),
+
   closeTab: (id, tabId) =>
     patchSession(set, id, (s) => {
       const idx = s.tabs.findIndex((t) => t.id === tabId)
@@ -165,5 +188,25 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
         activeTabId = next?.id ?? null
       }
       return { ...s, tabs, activeTabId }
-    })
+    }),
+
+  closeTabsToLeft: (id, tabId) =>
+    patchSession(set, id, (s) => {
+      const idx = s.tabs.findIndex((t) => t.id === tabId)
+      if (idx <= 0) return s
+      const tabs = s.tabs.slice(idx)
+      const activeTabId = tabs.some((t) => t.id === s.activeTabId) ? s.activeTabId : tabId
+      return { ...s, tabs, activeTabId }
+    }),
+
+  closeTabsToRight: (id, tabId) =>
+    patchSession(set, id, (s) => {
+      const idx = s.tabs.findIndex((t) => t.id === tabId)
+      if (idx < 0 || idx === s.tabs.length - 1) return s
+      const tabs = s.tabs.slice(0, idx + 1)
+      const activeTabId = tabs.some((t) => t.id === s.activeTabId) ? s.activeTabId : tabId
+      return { ...s, tabs, activeTabId }
+    }),
+
+  closeAllTabs: (id) => patchSession(set, id, (s) => ({ ...s, tabs: [], activeTabId: null }))
 }))
