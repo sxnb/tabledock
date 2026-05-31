@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { RefreshCw, Plus, Pencil, Trash2 } from 'lucide-react'
+import { RefreshCw, Plus, Pencil, Trash2, Copy, Braces, Search } from 'lucide-react'
 import type { RedisValue } from '@shared/types'
 import { IconButton } from '@renderer/components/ui/IconButton'
 import { Button } from '@renderer/components/ui/Button'
@@ -28,6 +28,22 @@ interface EntryForm {
   submit: (values: Record<string, string>) => string[]
 }
 
+function copyText(text: string, label: string): void {
+  void navigator.clipboard.writeText(text)
+  toast.success(label)
+}
+
+/** Returns pretty-printed JSON if the string parses to an object/array, else null. */
+function tryParseJson(s: string): string | null {
+  const t = s.trim()
+  if (!t || (t[0] !== '{' && t[0] !== '[')) return null
+  try {
+    return JSON.stringify(JSON.parse(t), null, 2)
+  } catch {
+    return null
+  }
+}
+
 function formatTtl(seconds: number): string {
   if (seconds < 0) return 'no expiry'
   if (seconds < 60) return `${seconds}s`
@@ -52,6 +68,8 @@ export function RedisValuePanel({
 }: RedisValuePanelProps): React.JSX.Element {
   const [entry, setEntry] = useState<EntryForm | null>(null)
   const [editStringOpen, setEditStringOpen] = useState(false)
+  const [filter, setFilter] = useState('')
+  const [rawString, setRawString] = useState(false)
 
   const write = async (args: string[]): Promise<void> => {
     try {
@@ -61,6 +79,10 @@ export function RedisValuePanel({
       toast.error(err instanceof Error ? err.message : String(err))
     }
   }
+
+  const isCollection = ['list', 'set', 'hash', 'zset'].includes(value.type)
+  const jsonString =
+    value.type === 'string' && typeof value.value === 'string' ? tryParseJson(value.value) : null
 
   const lengthLabel =
     value.length != null
@@ -117,6 +139,13 @@ export function RedisValuePanel({
         <span className="shrink-0 rounded bg-surface-2 px-1.5 py-0.5 uppercase text-faint">
           {value.type}
         </span>
+        <IconButton
+          label="Copy key name"
+          className="shrink-0"
+          onClick={() => copyText(keyName, 'Key name copied')}
+        >
+          <Copy size={12} />
+        </IconButton>
         <div className="flex-1" />
         <div className="flex shrink-0 items-center gap-2 text-[11px] text-faint">
           {lengthLabel && <Meta>{lengthLabel}</Meta>}
@@ -124,6 +153,12 @@ export function RedisValuePanel({
           {value.memoryBytes != null && <Meta>{formatBytes(value.memoryBytes)}</Meta>}
           {value.encoding && <Meta>{value.encoding}</Meta>}
         </div>
+        {jsonString != null && (
+          <Button size="sm" variant="ghost" onClick={() => setRawString((r) => !r)}>
+            <Braces size={13} />
+            {rawString ? 'Pretty' : 'Raw'}
+          </Button>
+        )}
         {!readOnly && value.type === 'string' && (
           <Button size="sm" variant="secondary" onClick={() => setEditStringOpen(true)}>
             <Pencil size={13} />
@@ -141,11 +176,28 @@ export function RedisValuePanel({
         </IconButton>
       </div>
 
+      {isCollection && (
+        <div className="border-b border-border px-3 py-1.5">
+          <div className="relative">
+            <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-faint" />
+            <input
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder="Filter entries…"
+              className="h-7 w-full rounded-md border border-border bg-surface-2 pl-7 pr-2 text-xs text-text placeholder:text-faint focus:border-accent focus:outline-none"
+            />
+          </div>
+        </div>
+      )}
+
       <div className="min-h-0 flex-1 overflow-auto p-4 font-mono text-xs">
         <Body
           value={value}
           keyName={keyName}
           readOnly={readOnly}
+          filter={filter}
+          jsonString={jsonString}
+          rawString={rawString}
           write={write}
           setEntry={setEntry}
         />
@@ -174,136 +226,203 @@ interface BodyProps {
   value: RedisValue
   keyName: string
   readOnly: boolean
+  filter: string
+  jsonString: string | null
+  rawString: boolean
   write: (args: string[]) => Promise<void>
   setEntry: (form: EntryForm) => void
 }
 
-function Body({ value, keyName, readOnly, write, setEntry }: BodyProps): React.JSX.Element {
+function NoMatches(): React.JSX.Element {
+  return <p className="text-faint">No entries match the filter.</p>
+}
+
+function Body({
+  value,
+  keyName,
+  readOnly,
+  filter,
+  jsonString,
+  rawString,
+  write,
+  setEntry
+}: BodyProps): React.JSX.Element {
+  const q = filter.trim().toLowerCase()
+  const match = (s: string): boolean => !q || s.toLowerCase().includes(q)
+
   switch (value.type) {
-    case 'string':
-      return <pre className="whitespace-pre-wrap break-all text-text">{String(value.value)}</pre>
-    case 'list':
+    case 'string': {
+      const text = jsonString != null && !rawString ? jsonString : String(value.value)
+      return <pre className="whitespace-pre-wrap break-all text-text">{text}</pre>
+    }
+    case 'list': {
+      const items = (value.value as string[])
+        .map((v, i) => [v, i] as const)
+        .filter(([v]) => match(v))
+      if (items.length === 0) return <NoMatches />
       return (
         <ol className="flex flex-col gap-1">
-          {(value.value as string[]).map((v, i) => (
+          {items.map(([v, i]) => (
             <Row
               key={i}
               label={String(i)}
               text={v}
               actions={
-                !readOnly && (
+                <>
                   <RowAction
-                    icon={<Pencil size={12} />}
-                    label="Edit element"
-                    onClick={() =>
-                      setEntry({
-                        title: `Edit element ${i}`,
-                        fields: [{ name: 'value', label: 'Value', value: v }],
-                        submit: (val) => ['LSET', keyName, String(i), val.value]
-                      })
-                    }
+                    icon={<Copy size={12} />}
+                    label="Copy element"
+                    onClick={() => copyText(v, 'Copied')}
                   />
-                )
+                  {!readOnly && (
+                    <RowAction
+                      icon={<Pencil size={12} />}
+                      label="Edit element"
+                      onClick={() =>
+                        setEntry({
+                          title: `Edit element ${i}`,
+                          fields: [{ name: 'value', label: 'Value', value: v }],
+                          submit: (val) => ['LSET', keyName, String(i), val.value]
+                        })
+                      }
+                    />
+                  )}
+                </>
               }
             />
           ))}
         </ol>
       )
-    case 'set':
+    }
+    case 'set': {
+      const items = (value.value as string[]).filter(match)
+      if (items.length === 0) return <NoMatches />
       return (
         <ol className="flex flex-col gap-1">
-          {(value.value as string[]).map((v, i) => (
+          {items.map((v, i) => (
             <Row
               key={i}
               text={v}
               actions={
-                !readOnly && (
+                <>
                   <RowAction
-                    icon={<Trash2 size={12} />}
-                    label="Remove member"
-                    danger
-                    onClick={() => void write(['SREM', keyName, v])}
+                    icon={<Copy size={12} />}
+                    label="Copy member"
+                    onClick={() => copyText(v, 'Copied')}
                   />
-                )
+                  {!readOnly && (
+                    <RowAction
+                      icon={<Trash2 size={12} />}
+                      label="Remove member"
+                      danger
+                      onClick={() => void write(['SREM', keyName, v])}
+                    />
+                  )}
+                </>
               }
             />
           ))}
         </ol>
       )
-    case 'zset':
+    }
+    case 'zset': {
+      const pairs = (value.value as { member: string; score: string }[]).filter((p) =>
+        match(p.member)
+      )
+      if (pairs.length === 0) return <NoMatches />
       return (
         <table className="w-full">
           <tbody>
-            {(value.value as { member: string; score: string }[]).map((p, i) => (
+            {pairs.map((p, i) => (
               <tr key={i} className="group">
                 <td className="w-16 py-0.5 pr-4 align-top text-faint">{p.score}</td>
                 <td className="break-all text-text">{p.member}</td>
-                {!readOnly && (
-                  <td className="w-16 text-right align-top">
-                    <span className="inline-flex opacity-0 group-hover:opacity-100">
-                      <RowAction
-                        icon={<Pencil size={12} />}
-                        label="Edit score"
-                        onClick={() =>
-                          setEntry({
-                            title: `Edit score · ${p.member}`,
-                            fields: [
-                              { name: 'score', label: 'Score', value: p.score, type: 'number' }
-                            ],
-                            submit: (v) => ['ZADD', keyName, v.score, p.member]
-                          })
-                        }
-                      />
-                      <RowAction
-                        icon={<Trash2 size={12} />}
-                        label="Remove member"
-                        danger
-                        onClick={() => void write(['ZREM', keyName, p.member])}
-                      />
-                    </span>
-                  </td>
-                )}
+                <td className="w-24 text-right align-top">
+                  <span className="inline-flex opacity-0 group-hover:opacity-100">
+                    <RowAction
+                      icon={<Copy size={12} />}
+                      label="Copy member"
+                      onClick={() => copyText(p.member, 'Copied')}
+                    />
+                    {!readOnly && (
+                      <>
+                        <RowAction
+                          icon={<Pencil size={12} />}
+                          label="Edit score"
+                          onClick={() =>
+                            setEntry({
+                              title: `Edit score · ${p.member}`,
+                              fields: [
+                                { name: 'score', label: 'Score', value: p.score, type: 'number' }
+                              ],
+                              submit: (v) => ['ZADD', keyName, v.score, p.member]
+                            })
+                          }
+                        />
+                        <RowAction
+                          icon={<Trash2 size={12} />}
+                          label="Remove member"
+                          danger
+                          onClick={() => void write(['ZREM', keyName, p.member])}
+                        />
+                      </>
+                    )}
+                  </span>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       )
-    case 'hash':
+    }
+    case 'hash': {
+      const entries = Object.entries(value.value as Record<string, string>).filter(
+        ([k, v]) => match(k) || match(v)
+      )
+      if (entries.length === 0) return <NoMatches />
       return (
         <table className="w-full">
           <tbody>
-            {Object.entries(value.value as Record<string, string>).map(([k, v]) => (
+            {entries.map(([k, v]) => (
               <tr key={k} className="group">
                 <td className="py-0.5 pr-4 align-top text-accent">{k}</td>
                 <td className="break-all text-text">{v}</td>
-                {!readOnly && (
-                  <td className="w-16 text-right align-top">
-                    <span className="inline-flex opacity-0 group-hover:opacity-100">
-                      <RowAction
-                        icon={<Pencil size={12} />}
-                        label="Edit field"
-                        onClick={() =>
-                          setEntry({
-                            title: `Edit field · ${k}`,
-                            fields: [{ name: 'value', label: 'Value', value: v }],
-                            submit: (val) => ['HSET', keyName, k, val.value]
-                          })
-                        }
-                      />
-                      <RowAction
-                        icon={<Trash2 size={12} />}
-                        label="Delete field"
-                        danger
-                        onClick={() => void write(['HDEL', keyName, k])}
-                      />
-                    </span>
-                  </td>
-                )}
+                <td className="w-24 text-right align-top">
+                  <span className="inline-flex opacity-0 group-hover:opacity-100">
+                    <RowAction
+                      icon={<Copy size={12} />}
+                      label="Copy value"
+                      onClick={() => copyText(v, 'Copied')}
+                    />
+                    {!readOnly && (
+                      <>
+                        <RowAction
+                          icon={<Pencil size={12} />}
+                          label="Edit field"
+                          onClick={() =>
+                            setEntry({
+                              title: `Edit field · ${k}`,
+                              fields: [{ name: 'value', label: 'Value', value: v }],
+                              submit: (val) => ['HSET', keyName, k, val.value]
+                            })
+                          }
+                        />
+                        <RowAction
+                          icon={<Trash2 size={12} />}
+                          label="Delete field"
+                          danger
+                          onClick={() => void write(['HDEL', keyName, k])}
+                        />
+                      </>
+                    )}
+                  </span>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       )
+    }
     default:
       return <pre className="text-muted">{String(value.value)}</pre>
   }
