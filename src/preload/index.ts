@@ -19,6 +19,7 @@ import type {
   RedisScanResult,
   RedisValue,
   RowsResult,
+  SavedQuery,
   SchemaGraph,
   TableMeta,
   UpdateRowParams,
@@ -122,6 +123,14 @@ const api: DataDockApi = {
     add: (connectionId: string, entry: { sql: string; ok: boolean }): Promise<void> =>
       invoke('history:add', connectionId, entry),
     clear: (connectionId: string): Promise<void> => invoke('history:clear', connectionId)
+  },
+  savedQueries: {
+    list: (connectionId: string): Promise<SavedQuery[]> =>
+      invoke('savedQueries:list', connectionId),
+    save: (connectionId: string, query: { name: string; sql: string }): Promise<SavedQuery[]> =>
+      invoke('savedQueries:save', connectionId, query),
+    delete: (connectionId: string, id: string): Promise<SavedQuery[]> =>
+      invoke('savedQueries:delete', connectionId, id)
   },
   settings: {
     get: (): Promise<AppSettings> => invoke('settings:get'),

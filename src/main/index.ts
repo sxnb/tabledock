@@ -5,6 +5,7 @@ import icon from '../../resources/icon.png?asset'
 import { registerDbIpc } from './db/ipc'
 import { registerStoreIpc } from './store'
 import { registerHistoryIpc } from './history'
+import { registerSavedQueriesIpc } from './saved-queries'
 import { registerSettingsIpc } from './settings'
 import { registerHapticsIpc } from './haptics'
 import { registerMenu } from './menu'
@@ -60,6 +61,7 @@ app.whenReady().then(() => {
   registerDbIpc()
   registerStoreIpc()
   registerHistoryIpc()
+  registerSavedQueriesIpc()
   registerSettingsIpc()
   registerHapticsIpc()
   registerMenu()

@@ -1,5 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Table2, Terminal, Plus, Search, RefreshCw, Workflow, History } from 'lucide-react'
+import {
+  Table2,
+  Terminal,
+  Plus,
+  Search,
+  RefreshCw,
+  Workflow,
+  History,
+  Bookmark
+} from 'lucide-react'
 import type { Session } from '@renderer/store/workspace'
 import { useWorkspace } from '@renderer/store/workspace'
 import { Select } from '@renderer/components/ui/Select'
@@ -14,6 +23,7 @@ import { TableDataTab } from './TableDataTab'
 import { QueryTab } from './QueryTab'
 import { RelationsView } from './RelationsView'
 import { QueryHistoryPanel } from './QueryHistoryPanel'
+import { SavedQueriesPanel } from './SavedQueriesPanel'
 
 function tabIcon(kind: string): React.JSX.Element {
   if (kind === 'query') return <Terminal size={12} />
@@ -41,6 +51,8 @@ export function RelationalWorkspace({ session }: { session: Session }): React.JS
   const [tables, setTables] = useState<string[]>([])
   const [loadingTables, setLoadingTables] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [savedOpen, setSavedOpen] = useState(false)
+  const [savedReloadToken, setSavedReloadToken] = useState(0)
   // Pending database switch awaiting confirmation (set when tabs are open).
   const [pendingDatabase, setPendingDatabase] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -209,6 +221,13 @@ export function RelationalWorkspace({ session }: { session: Session }): React.JS
               >
                 <History size={15} />
               </IconButton>
+              <IconButton
+                label="Saved queries"
+                onClick={() => setSavedOpen((o) => !o)}
+                className={cn(savedOpen && 'bg-surface-2 text-text')}
+              >
+                <Bookmark size={15} />
+              </IconButton>
               <IconButton label="New query tab" onClick={() => openQueryTab(session.id)}>
                 <Plus size={15} />
               </IconButton>
@@ -255,6 +274,7 @@ export function RelationalWorkspace({ session }: { session: Session }): React.JS
               database={isSqlite ? undefined : session.selectedDatabase}
               sql={activeTab.sql ?? ''}
               onSqlChange={(value) => setTabSql(session.id, activeTab.id, value)}
+              onSaved={() => setSavedReloadToken((t) => t + 1)}
             />
           )}
 
@@ -265,6 +285,17 @@ export function RelationalWorkspace({ session }: { session: Session }): React.JS
             onSelect={(sql) => {
               openQueryTab(session.id, sql)
               setHistoryOpen(false)
+            }}
+          />
+
+          <SavedQueriesPanel
+            connectionId={session.id}
+            open={savedOpen}
+            reloadToken={savedReloadToken}
+            onClose={() => setSavedOpen(false)}
+            onSelect={(sql) => {
+              openQueryTab(session.id, sql)
+              setSavedOpen(false)
             }}
           />
         </div>

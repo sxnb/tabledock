@@ -11,13 +11,15 @@ import {
   type SQLDialect
 } from '@codemirror/lang-sql'
 import { oneDark } from '@codemirror/theme-one-dark'
-import { Play, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { Play, AlertTriangle, CheckCircle2, Bookmark } from 'lucide-react'
 import type { DriverKind, QueryResult } from '@shared/types'
 import { useSettings } from '@renderer/store/settings'
 import { DataTable } from '@renderer/components/ui/DataTable'
 import { Button } from '@renderer/components/ui/Button'
 import { Spinner } from '@renderer/components/ui/Spinner'
 import { ExportButton } from '@renderer/components/ui/ExportButton'
+import { Modal } from '@renderer/components/ui/Modal'
+import { Input } from '@renderer/components/ui/Input'
 
 interface QueryTabProps {
   sessionId: string
@@ -28,6 +30,8 @@ interface QueryTabProps {
   /** Editor contents, owned by the workspace store so it survives tab switches. */
   sql: string
   onSqlChange: (sql: string) => void
+  /** Called after a query is saved, so the workspace can refresh its panel. */
+  onSaved?: () => void
 }
 
 function dialectFor(kind: DriverKind): SQLDialect {
@@ -53,12 +57,15 @@ export function QueryTab({
   kind,
   database,
   sql: sqlText,
-  onSqlChange
+  onSqlChange,
+  onSaved
 }: QueryTabProps): React.JSX.Element {
   const resolvedTheme = useSettings((s) => s.resolvedTheme)
   const [result, setResult] = useState<QueryResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [running, setRunning] = useState(false)
+  const [saveOpen, setSaveOpen] = useState(false)
+  const [saveName, setSaveName] = useState('')
   // Schema for autocomplete: { tableName: [columnName, ...] }.
   const [schema, setSchema] = useState<Record<string, string[]>>({})
 
@@ -105,12 +112,29 @@ export function QueryTab({
     }
   }
 
+  const openSave = (): void => {
+    setSaveName('')
+    setSaveOpen(true)
+  }
+
+  const confirmSave = async (): Promise<void> => {
+    const name = saveName.trim()
+    if (!name || !sqlText.trim()) return
+    await window.api.savedQueries.save(connectionId, { name, sql: sqlText })
+    setSaveOpen(false)
+    onSaved?.()
+  }
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2 border-b border-border bg-surface px-3 py-1.5">
         <Button variant="primary" size="sm" onClick={run} disabled={running}>
           {running ? <Spinner size={13} className="text-white" /> : <Play size={13} />}
           Run
+        </Button>
+        <Button variant="secondary" size="sm" onClick={openSave} disabled={!sqlText.trim()}>
+          <Bookmark size={13} />
+          Save
         </Button>
         <span className="text-[11px] text-faint">⌘/Ctrl + Enter</span>
         <div className="flex-1" />
@@ -147,6 +171,33 @@ export function QueryTab({
           </div>
         )}
       </div>
+
+      <Modal
+        open={saveOpen}
+        title="Save query"
+        onClose={() => setSaveOpen(false)}
+        footer={
+          <>
+            <Button variant="secondary" size="sm" onClick={() => setSaveOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" size="sm" onClick={confirmSave} disabled={!saveName.trim()}>
+              Save
+            </Button>
+          </>
+        }
+      >
+        <Input
+          label="Name"
+          autoFocus
+          value={saveName}
+          onChange={(e) => setSaveName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') void confirmSave()
+          }}
+          placeholder="e.g. Active users last 7 days"
+        />
+      </Modal>
     </div>
   )
 }

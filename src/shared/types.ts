@@ -164,6 +164,15 @@ export interface QueryHistoryEntry {
   ok: boolean
 }
 
+/** A named, reusable SQL snippet saved for a connection. */
+export interface SavedQuery {
+  id: string
+  name: string
+  sql: string
+  /** Epoch milliseconds. */
+  createdAt: number
+}
+
 export interface SidebarSettings {
   /** Base background color (hex). Null uses the default surface. */
   color: string | null
@@ -311,6 +320,11 @@ export interface DataDockApi {
     list(connectionId: string): Promise<QueryHistoryEntry[]>
     add(connectionId: string, entry: { sql: string; ok: boolean }): Promise<void>
     clear(connectionId: string): Promise<void>
+  }
+  savedQueries: {
+    list(connectionId: string): Promise<SavedQuery[]>
+    save(connectionId: string, query: { name: string; sql: string }): Promise<SavedQuery[]>
+    delete(connectionId: string, id: string): Promise<SavedQuery[]>
   }
   settings: {
     get(): Promise<AppSettings>
