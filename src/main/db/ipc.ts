@@ -164,6 +164,7 @@ export function registerDbIpc(): void {
   )
   handle('redis:get', (sessionId: string, key: string) => redis(sessionId).getKey(key))
   handle('redis:command', (sessionId: string, args: string[]) => redis(sessionId).runCommand(args))
+  handle('redis:dbSize', (sessionId: string) => redis(sessionId).dbSize())
 
   // MongoDB
   handle('mongo:databases', (sessionId: string) => mongo(sessionId).listDatabases())

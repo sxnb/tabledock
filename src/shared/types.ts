@@ -268,6 +268,14 @@ export interface RedisScanResult {
 export interface RedisValue {
   type: string
   value: unknown
+  /** Seconds to expiry; -1 when the key has no expiry. */
+  ttl?: number
+  /** Estimated memory footprint in bytes (MEMORY USAGE), when available. */
+  memoryBytes?: number
+  /** Internal encoding (OBJECT ENCODING), e.g. 'listpack', 'embstr'. */
+  encoding?: string
+  /** Element count for collections (list/set/zset/hash length). */
+  length?: number
 }
 
 /** A MongoDB document, serialized as Extended JSON for transport/display. */
@@ -363,6 +371,8 @@ export interface DataDockApi {
     ): Promise<RedisScanResult>
     get(sessionId: string, key: string): Promise<RedisValue>
     command(sessionId: string, args: string[]): Promise<unknown>
+    /** Number of keys in the current database (DBSIZE). */
+    dbSize(sessionId: string): Promise<number>
   }
   dialog: {
     openFile(options?: OpenFileOptions): Promise<string | null>

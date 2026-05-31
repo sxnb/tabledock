@@ -28,7 +28,16 @@ export function RedisWorkspace({ session }: { session: Session }): React.JSX.Ele
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const [value, setValue] = useState<RedisValue | null>(null)
   const [loadingValue, setLoadingValue] = useState(false)
+  const [dbSize, setDbSize] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  const loadDbSize = async (): Promise<void> => {
+    try {
+      setDbSize(await window.api.redis.dbSize(sessionId))
+    } catch {
+      setDbSize(null)
+    }
+  }
 
   const scan = async (reset: boolean): Promise<void> => {
     setLoadingKeys(true)
@@ -53,6 +62,7 @@ export function RedisWorkspace({ session }: { session: Session }): React.JSX.Ele
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- initial key scan sets loading/keys intentionally
     void scan(true)
+    void loadDbSize()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId])
 
@@ -75,6 +85,7 @@ export function RedisWorkspace({ session }: { session: Session }): React.JSX.Ele
     setSelectedKey(null)
     setValue(null)
     void scan(true)
+    void loadDbSize()
   }
 
   return (
@@ -94,6 +105,11 @@ export function RedisWorkspace({ session }: { session: Session }): React.JSX.Ele
               </option>
             ))}
           </Select>
+          {dbSize !== null && (
+            <span className="shrink-0 text-[11px] tabular-nums text-faint">
+              {dbSize.toLocaleString()} keys
+            </span>
+          )}
         </div>
 
         <form
@@ -185,7 +201,11 @@ export function RedisWorkspace({ session }: { session: Session }): React.JSX.Ele
               <Spinner size={20} />
             </div>
           ) : selectedKey && value ? (
-            <ValueView keyName={selectedKey} value={value} />
+            <ValueView
+              keyName={selectedKey}
+              value={value}
+              onRefresh={() => void selectKey(selectedKey)}
+            />
           ) : (
             <EmptyState
               icon={<KeyRound size={28} />}
@@ -224,20 +244,63 @@ function ViewToggle({
   )
 }
 
-function ValueView({ keyName, value }: { keyName: string; value: RedisValue }): React.JSX.Element {
+function formatTtl(seconds: number): string {
+  if (seconds < 0) return 'no expiry'
+  if (seconds < 60) return `${seconds}s`
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`
+  return `${Math.floor(seconds / 86400)}d`
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function ValueView({
+  keyName,
+  value,
+  onRefresh
+}: {
+  keyName: string
+  value: RedisValue
+  onRefresh: () => void
+}): React.JSX.Element {
+  const lengthLabel =
+    value.length != null
+      ? value.type === 'string'
+        ? `${value.length} chars`
+        : `${value.length} items`
+      : null
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2 border-b border-border px-4 py-2 text-xs">
-        <span className="font-mono text-text">{keyName}</span>
-        <span className="rounded bg-surface-2 px-1.5 py-0.5 uppercase text-faint">
+        <span className="truncate font-mono text-text">{keyName}</span>
+        <span className="shrink-0 rounded bg-surface-2 px-1.5 py-0.5 uppercase text-faint">
           {value.type}
         </span>
+        <div className="flex-1" />
+        <div className="flex shrink-0 items-center gap-2 text-[11px] text-faint">
+          {lengthLabel && <Meta>{lengthLabel}</Meta>}
+          {value.ttl != null && <Meta>TTL {formatTtl(value.ttl)}</Meta>}
+          {value.memoryBytes != null && <Meta>{formatBytes(value.memoryBytes)}</Meta>}
+          {value.encoding && <Meta>{value.encoding}</Meta>}
+        </div>
+        <IconButton label="Refresh value" onClick={onRefresh} className="shrink-0">
+          <RefreshCw size={13} />
+        </IconButton>
       </div>
       <div className="min-h-0 flex-1 overflow-auto p-4 font-mono text-xs">
         <RedisValueBody value={value} />
       </div>
     </div>
   )
+}
+
+function Meta({ children }: { children: React.ReactNode }): React.JSX.Element {
+  return <span className="rounded bg-surface-2 px-1.5 py-0.5">{children}</span>
 }
 
 function RedisValueBody({ value }: { value: RedisValue }): React.JSX.Element {

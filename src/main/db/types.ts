@@ -54,6 +54,7 @@ export interface RedisDriverApi {
   listKeys(opts: { pattern: string; cursor: string; count: number }): Promise<RedisScanResult>
   getKey(key: string): Promise<RedisValue>
   runCommand(args: string[]): Promise<unknown>
+  dbSize(): Promise<number>
   /** Export the current database's keyspace as Redis commands. */
   dumpKeyspace(): Promise<string>
 }

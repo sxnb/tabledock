@@ -60,28 +60,69 @@ export class RedisDriver implements RedisDriverApi {
 
   async getKey(key: string): Promise<RedisValue> {
     const type = await this.handle.type(key)
+    if (type === 'none') return { type: 'none', value: null }
+
+    const meta = await this.keyMeta(key)
     switch (type) {
       case 'string':
-        return { type, value: await this.handle.get(key) }
+        return { type, value: await this.handle.get(key), ...meta }
       case 'list':
-        return { type, value: await this.handle.lrange(key, 0, -1) }
+        return { type, value: await this.handle.lrange(key, 0, -1), ...meta }
       case 'set':
-        return { type, value: await this.handle.smembers(key) }
+        return { type, value: await this.handle.smembers(key), ...meta }
       case 'zset': {
         const flat = await this.handle.zrange(key, 0, -1, 'WITHSCORES')
         const pairs: { member: string; score: string }[] = []
         for (let i = 0; i < flat.length; i += 2) {
           pairs.push({ member: flat[i], score: flat[i + 1] })
         }
-        return { type, value: pairs }
+        return { type, value: pairs, ...meta }
       }
       case 'hash':
-        return { type, value: await this.handle.hgetall(key) }
-      case 'none':
-        return { type: 'none', value: null }
+        return { type, value: await this.handle.hgetall(key), ...meta }
       default:
-        return { type, value: `(unsupported type: ${type})` }
+        return { type, value: `(unsupported type: ${type})`, ...meta }
     }
+  }
+
+  /** TTL, memory footprint, encoding, and element count for a key. */
+  private async keyMeta(
+    key: string
+  ): Promise<{ ttl: number; memoryBytes?: number; encoding?: string; length?: number }> {
+    const [ttl, memory, encoding, length] = await Promise.all([
+      this.handle.ttl(key),
+      this.handle.memory('USAGE', key).catch(() => null),
+      this.handle.object('ENCODING', key).catch(() => null),
+      this.elementCount(key).catch(() => undefined)
+    ])
+    return {
+      ttl,
+      memoryBytes: typeof memory === 'number' ? memory : undefined,
+      encoding: typeof encoding === 'string' ? encoding : undefined,
+      length
+    }
+  }
+
+  private async elementCount(key: string): Promise<number | undefined> {
+    const type = await this.handle.type(key)
+    switch (type) {
+      case 'list':
+        return this.handle.llen(key)
+      case 'set':
+        return this.handle.scard(key)
+      case 'zset':
+        return this.handle.zcard(key)
+      case 'hash':
+        return this.handle.hlen(key)
+      case 'string':
+        return this.handle.strlen(key)
+      default:
+        return undefined
+    }
+  }
+
+  async dbSize(): Promise<number> {
+    return this.handle.dbsize()
   }
 
   async runCommand(args: string[]): Promise<unknown> {
