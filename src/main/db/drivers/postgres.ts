@@ -16,6 +16,7 @@ import type {
   SchemaRelation,
   SchemaTable,
   TableMeta,
+  TableStructure,
   UpdateRowParams,
   UpdateRowResult,
   DumpOptions
@@ -173,6 +174,76 @@ export class PostgresDriver implements RelationalDriver {
     })
 
     return { columns, primaryKeys }
+  }
+
+  async getTableStructure(table: string, database?: string): Promise<TableStructure> {
+    const pool = await this.poolFor(database || this.currentDatabase)
+
+    const colsRes = await pool.query<{
+      column_name: string
+      data_type: string
+      udt_name: string
+      is_nullable: string
+      column_default: string | null
+      character_maximum_length: number | null
+      numeric_precision: number | null
+      numeric_scale: number | null
+    }>(
+      `SELECT column_name, data_type, udt_name, is_nullable, column_default,
+              character_maximum_length, numeric_precision, numeric_scale
+       FROM information_schema.columns
+       WHERE table_schema = 'public' AND table_name = $1
+       ORDER BY ordinal_position`,
+      [table]
+    )
+
+    const pkRes = await pool.query<{ name: string }>(
+      `SELECT a.attname AS name
+       FROM pg_index i
+       JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY (i.indkey)
+       WHERE i.indrelid = (quote_ident('public') || '.' || quote_ident($1))::regclass
+         AND i.indisprimary`,
+      [table]
+    )
+    const primaryKeys = pkRes.rows.map((r) => r.name)
+
+    const columns = colsRes.rows.map((c) => {
+      const def = c.column_default
+      return {
+        name: c.column_name,
+        dataType: formatPgType(c),
+        nullable: c.is_nullable.toUpperCase() === 'YES',
+        default: def,
+        isPrimaryKey: primaryKeys.includes(c.column_name),
+        extra: def && /nextval\(/i.test(def) ? 'auto increment' : undefined
+      }
+    })
+
+    const idxRes = await pool.query<{
+      index_name: string
+      is_unique: boolean
+      column_name: string
+    }>(
+      `SELECT i.relname AS index_name, ix.indisunique AS is_unique, a.attname AS column_name
+       FROM pg_index ix
+       JOIN pg_class i ON i.oid = ix.indexrelid
+       JOIN pg_class t ON t.oid = ix.indrelid
+       JOIN pg_namespace n ON n.oid = t.relnamespace
+       JOIN LATERAL unnest(ix.indkey) WITH ORDINALITY AS k(attnum, ord) ON true
+       JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = k.attnum
+       WHERE n.nspname = 'public' AND t.relname = $1
+       ORDER BY i.relname, k.ord`,
+      [table]
+    )
+    const byName = new Map<string, { columns: string[]; unique: boolean }>()
+    for (const r of idxRes.rows) {
+      const entry = byName.get(r.index_name) ?? { columns: [], unique: r.is_unique }
+      entry.columns.push(r.column_name)
+      byName.set(r.index_name, entry)
+    }
+    const indexes = [...byName.entries()].map(([name, v]) => ({ name, ...v }))
+
+    return { columns, indexes, createSql: buildPgCreate(table, columns, primaryKeys) }
   }
 
   private async loadEnumLabels(pool: pg.Pool, typeNames: string[]): Promise<Map<string, string[]>> {
@@ -379,4 +450,40 @@ function normalize(value: unknown): unknown {
   if (Buffer.isBuffer(value)) return value.toString('base64')
   if (value !== null && typeof value === 'object') return JSON.stringify(value)
   return value
+}
+
+/** Format a Postgres column's type with length/precision, e.g. varchar(255). */
+function formatPgType(c: {
+  data_type: string
+  udt_name: string
+  character_maximum_length: number | null
+  numeric_precision: number | null
+  numeric_scale: number | null
+}): string {
+  if (c.data_type === 'USER-DEFINED' || c.data_type === 'ARRAY') return c.udt_name
+  if (c.character_maximum_length != null) return `${c.data_type}(${c.character_maximum_length})`
+  if (c.data_type === 'numeric' && c.numeric_precision != null) {
+    return c.numeric_scale
+      ? `numeric(${c.numeric_precision},${c.numeric_scale})`
+      : `numeric(${c.numeric_precision})`
+  }
+  return c.data_type
+}
+
+/** Synthesize a CREATE TABLE statement (Postgres exposes no SHOW CREATE TABLE). */
+function buildPgCreate(
+  table: string,
+  columns: { name: string; dataType: string; nullable: boolean; default: string | null }[],
+  primaryKeys: string[]
+): string {
+  const lines = columns.map((c) => {
+    let line = `  ${quoteIdent(c.name)} ${c.dataType}`
+    if (c.default != null) line += ` DEFAULT ${c.default}`
+    if (!c.nullable) line += ' NOT NULL'
+    return line
+  })
+  if (primaryKeys.length > 0) {
+    lines.push(`  PRIMARY KEY (${primaryKeys.map(quoteIdent).join(', ')})`)
+  }
+  return `CREATE TABLE ${quoteIdent('public')}.${quoteIdent(table)} (\n${lines.join(',\n')}\n);`
 }

@@ -118,6 +118,34 @@ export interface TableMeta {
   primaryKeys: string[]
 }
 
+/** A column as shown in the table Structure view (detailed, display-oriented). */
+export interface ColumnStructure {
+  name: string
+  /** Full type as reported by the database, e.g. 'varchar(255)', 'int unsigned'. */
+  dataType: string
+  nullable: boolean
+  /** Default expression/value, or null when none. */
+  default: string | null
+  isPrimaryKey: boolean
+  /** Extra detail such as 'auto_increment' / 'identity'; empty when none. */
+  extra?: string
+}
+
+/** An index as shown in the table Structure view. */
+export interface IndexStructure {
+  name: string
+  columns: string[]
+  unique: boolean
+}
+
+/** Detailed structure of a table: columns, indexes, and CREATE DDL. */
+export interface TableStructure {
+  columns: ColumnStructure[]
+  indexes: IndexStructure[]
+  /** CREATE statement when the driver can produce one, else null. */
+  createSql: string | null
+}
+
 export interface UpdateRowParams {
   database?: string
   /** Original primary-key column → value, used to locate the row. */
@@ -272,6 +300,7 @@ export interface DataDockApi {
     tables(sessionId: string, database?: string): Promise<string[]>
     rows(sessionId: string, table: string, opts: GetRowsOptions): Promise<RowsResult>
     tableMeta(sessionId: string, table: string, database?: string): Promise<TableMeta>
+    tableStructure(sessionId: string, table: string, database?: string): Promise<TableStructure>
     update(sessionId: string, table: string, params: UpdateRowParams): Promise<UpdateRowResult>
     deleteRow(sessionId: string, table: string, params: DeleteRowParams): Promise<UpdateRowResult>
     insertRow(sessionId: string, table: string, params: InsertRowParams): Promise<UpdateRowResult>

@@ -17,6 +17,7 @@ import type {
   SchemaRelation,
   SchemaTable,
   TableMeta,
+  TableStructure,
   UpdateRowParams,
   UpdateRowResult
 } from '../types'
@@ -178,6 +179,77 @@ export class SqlServerDriver implements RelationalDriver {
       isPrimaryKey: pkSet.has(c.COLUMN_NAME)
     }))
     return { columns, primaryKeys: columns.filter((c) => c.isPrimaryKey).map((c) => c.name) }
+  }
+
+  async getTableStructure(table: string, database?: string): Promise<TableStructure> {
+    const pool = await this.poolFor(database || this.currentDatabase)
+    const full = `dbo.${table}`
+
+    const colsRes = await pool
+      .request()
+      .input('t', table)
+      .query<{
+        COLUMN_NAME: string
+        DATA_TYPE: string
+        IS_NULLABLE: string
+        COLUMN_DEFAULT: string | null
+        CHARACTER_MAXIMUM_LENGTH: number | null
+        NUMERIC_PRECISION: number | null
+        NUMERIC_SCALE: number | null
+      }>(
+        `SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, COLUMN_DEFAULT,
+                CHARACTER_MAXIMUM_LENGTH, NUMERIC_PRECISION, NUMERIC_SCALE
+         FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = @t
+         ORDER BY ORDINAL_POSITION`
+      )
+
+    const pkRes = await pool
+      .request()
+      .input('t', table)
+      .query<{ COLUMN_NAME: string }>(
+        `SELECT kcu.COLUMN_NAME
+         FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc
+         JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu ON kcu.CONSTRAINT_NAME = tc.CONSTRAINT_NAME
+         WHERE tc.CONSTRAINT_TYPE = 'PRIMARY KEY' AND tc.TABLE_SCHEMA = 'dbo' AND tc.TABLE_NAME = @t`
+      )
+    const pkSet = new Set(pkRes.recordset.map((r) => r.COLUMN_NAME))
+    const primaryKeys = [...pkSet]
+
+    const identRes = await pool.request().input('full', full).query<{
+      name: string
+    }>(`SELECT name FROM sys.identity_columns WHERE object_id = OBJECT_ID(@full)`)
+    const identitySet = new Set(identRes.recordset.map((r) => r.name))
+
+    const columns = colsRes.recordset.map((c) => ({
+      name: c.COLUMN_NAME,
+      dataType: formatMssqlType(c),
+      nullable: c.IS_NULLABLE.toUpperCase() === 'YES',
+      default: c.COLUMN_DEFAULT,
+      isPrimaryKey: pkSet.has(c.COLUMN_NAME),
+      extra: identitySet.has(c.COLUMN_NAME) ? 'identity' : undefined
+    }))
+
+    const idxRes = await pool
+      .request()
+      .input('full', full)
+      .query<{ index_name: string; is_unique: boolean; column_name: string }>(
+        `SELECT i.name AS index_name, i.is_unique, c.name AS column_name
+         FROM sys.indexes i
+         JOIN sys.index_columns ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id
+         JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
+         WHERE i.object_id = OBJECT_ID(@full) AND i.name IS NOT NULL
+         ORDER BY i.name, ic.key_ordinal`
+      )
+    const byName = new Map<string, { columns: string[]; unique: boolean }>()
+    for (const r of idxRes.recordset) {
+      const entry = byName.get(r.index_name) ?? { columns: [], unique: r.is_unique }
+      entry.columns.push(r.column_name)
+      byName.set(r.index_name, entry)
+    }
+    const indexes = [...byName.entries()].map(([name, v]) => ({ name, ...v }))
+
+    return { columns, indexes, createSql: buildMssqlCreate(table, columns, primaryKeys) }
   }
 
   async updateRow(table: string, params: UpdateRowParams): Promise<UpdateRowResult> {
@@ -352,4 +424,46 @@ export class SqlServerDriver implements RelationalDriver {
     }
     return parts.join('\n')
   }
+}
+
+/** Format a SQL Server column's type with length/precision, e.g. varchar(255). */
+function formatMssqlType(c: {
+  DATA_TYPE: string
+  CHARACTER_MAXIMUM_LENGTH: number | null
+  NUMERIC_PRECISION: number | null
+  NUMERIC_SCALE: number | null
+}): string {
+  const type = c.DATA_TYPE.toLowerCase()
+  if (c.CHARACTER_MAXIMUM_LENGTH != null) {
+    return `${type}(${c.CHARACTER_MAXIMUM_LENGTH === -1 ? 'max' : c.CHARACTER_MAXIMUM_LENGTH})`
+  }
+  if ((type === 'decimal' || type === 'numeric') && c.NUMERIC_PRECISION != null) {
+    return `${type}(${c.NUMERIC_PRECISION},${c.NUMERIC_SCALE ?? 0})`
+  }
+  return type
+}
+
+/** Synthesize a CREATE TABLE statement (built from column metadata). */
+function buildMssqlCreate(
+  table: string,
+  columns: {
+    name: string
+    dataType: string
+    nullable: boolean
+    default: string | null
+    extra?: string
+  }[],
+  primaryKeys: string[]
+): string {
+  const lines = columns.map((c) => {
+    let line = `  ${quoteIdent(c.name)} ${c.dataType}`
+    if (c.extra === 'identity') line += ' IDENTITY(1,1)'
+    if (c.default != null) line += ` DEFAULT ${c.default}`
+    line += c.nullable ? ' NULL' : ' NOT NULL'
+    return line
+  })
+  if (primaryKeys.length > 0) {
+    lines.push(`  PRIMARY KEY (${primaryKeys.map(quoteIdent).join(', ')})`)
+  }
+  return `CREATE TABLE ${quoteIdent('dbo')}.${quoteIdent(table)} (\n${lines.join(',\n')}\n);`
 }

@@ -16,6 +16,7 @@ import type {
   SchemaRelation,
   SchemaTable,
   TableMeta,
+  TableStructure,
   UpdateRowParams,
   UpdateRowResult,
   DumpOptions
@@ -134,6 +135,58 @@ export class MySqlDriver implements RelationalDriver {
       return meta
     })
     return { columns, primaryKeys: columns.filter((c) => c.isPrimaryKey).map((c) => c.name) }
+  }
+
+  async getTableStructure(table: string, database?: string): Promise<TableStructure> {
+    const target = database || this.config.database
+    if (!target) throw new Error('No database selected')
+
+    const [colRows] = await this.db.query<mysql.RowDataPacket[]>(
+      `SELECT column_name, column_type, is_nullable, column_default, column_key, extra
+       FROM information_schema.columns
+       WHERE table_schema = ? AND table_name = ?
+       ORDER BY ordinal_position`,
+      [target, table]
+    )
+    const columns = colRows.map((r) => ({
+      name: String(r.column_name ?? r.COLUMN_NAME),
+      dataType: String(r.column_type ?? r.COLUMN_TYPE),
+      nullable: String(r.is_nullable ?? r.IS_NULLABLE).toUpperCase() === 'YES',
+      default: r.column_default ?? r.COLUMN_DEFAULT ?? null,
+      isPrimaryKey: String(r.column_key ?? r.COLUMN_KEY) === 'PRI',
+      extra: String(r.extra ?? r.EXTRA ?? '') || undefined
+    }))
+
+    const [idxRows] = await this.db.query<mysql.RowDataPacket[]>(
+      `SELECT index_name, non_unique, seq_in_index, column_name
+       FROM information_schema.statistics
+       WHERE table_schema = ? AND table_name = ?
+       ORDER BY index_name, seq_in_index`,
+      [target, table]
+    )
+    const byName = new Map<string, { columns: string[]; unique: boolean }>()
+    for (const r of idxRows) {
+      const name = String(r.index_name ?? r.INDEX_NAME)
+      const col = String(r.column_name ?? r.COLUMN_NAME)
+      const unique = Number(r.non_unique ?? r.NON_UNIQUE) === 0
+      const entry = byName.get(name) ?? { columns: [], unique }
+      entry.columns.push(col)
+      byName.set(name, entry)
+    }
+    const indexes = [...byName.entries()].map(([name, v]) => ({ name, ...v }))
+
+    let createSql: string | null = null
+    try {
+      const [create] = await this.db.query<mysql.RowDataPacket[]>(
+        `SHOW CREATE TABLE ${quoteIdent(target)}.${quoteIdent(table)}`
+      )
+      const row = create[0] as Record<string, unknown> | undefined
+      if (row) createSql = String(row['Create Table'] ?? row['Create View'] ?? '') || null
+    } catch {
+      createSql = null
+    }
+
+    return { columns, indexes, createSql }
   }
 
   async updateRow(table: string, params: UpdateRowParams): Promise<UpdateRowResult> {

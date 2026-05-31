@@ -70,6 +70,9 @@ export function registerDbIpc(): void {
   handle('db:tableMeta', (sessionId: string, table: string, database?: string) =>
     relational(sessionId).getTableMeta(table, database)
   )
+  handle('db:tableStructure', (sessionId: string, table: string, database?: string) =>
+    relational(sessionId).getTableStructure(table, database)
+  )
   handle('db:update', (sessionId: string, table: string, params: UpdateRowParams) => {
     assertWritable(sessionId)
     return relational(sessionId).updateRow(table, params)

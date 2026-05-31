@@ -9,6 +9,7 @@ import type {
   RowsResult,
   SchemaGraph,
   TableMeta,
+  TableStructure,
   UpdateRowParams,
   UpdateRowResult,
   DeleteRowParams,
@@ -27,6 +28,7 @@ export interface RelationalDriver {
   listTables(database?: string): Promise<string[]>
   getRows(table: string, opts: GetRowsOptions): Promise<RowsResult>
   getTableMeta(table: string, database?: string): Promise<TableMeta>
+  getTableStructure(table: string, database?: string): Promise<TableStructure>
   updateRow(table: string, params: UpdateRowParams): Promise<UpdateRowResult>
   deleteRow(table: string, params: DeleteRowParams): Promise<UpdateRowResult>
   insertRow(table: string, params: InsertRowParams): Promise<UpdateRowResult>

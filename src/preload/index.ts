@@ -22,6 +22,7 @@ import type {
   SavedQuery,
   SchemaGraph,
   TableMeta,
+  TableStructure,
   UpdateRowParams,
   UpdateRowResult
 } from '../shared/types'
@@ -50,6 +51,11 @@ const api: DataDockApi = {
       invoke('db:rows', sessionId, table, opts),
     tableMeta: (sessionId: string, table: string, database?: string): Promise<TableMeta> =>
       invoke('db:tableMeta', sessionId, table, database),
+    tableStructure: (
+      sessionId: string,
+      table: string,
+      database?: string
+    ): Promise<TableStructure> => invoke('db:tableStructure', sessionId, table, database),
     update: (sessionId: string, table: string, params: UpdateRowParams): Promise<UpdateRowResult> =>
       invoke('db:update', sessionId, table, params),
     deleteRow: (

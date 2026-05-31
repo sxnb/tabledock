@@ -16,6 +16,7 @@ import type {
   SchemaRelation,
   SchemaTable,
   TableMeta,
+  TableStructure,
   UpdateRowParams,
   UpdateRowResult
 } from '../types'
@@ -110,6 +111,40 @@ export class SqliteDriver implements RelationalDriver {
       isPrimaryKey: c.pk > 0
     }))
     return { columns, primaryKeys: columns.filter((c) => c.isPrimaryKey).map((c) => c.name) }
+  }
+
+  async getTableStructure(table: string): Promise<TableStructure> {
+    const info = this.handle.prepare(`PRAGMA table_info(${quoteIdent(table)})`).all() as {
+      name: string
+      type: string
+      notnull: number
+      dflt_value: string | null
+      pk: number
+    }[]
+    const columns = info.map((c) => ({
+      name: c.name,
+      dataType: c.type || '',
+      nullable: c.notnull === 0,
+      default: c.dflt_value,
+      isPrimaryKey: c.pk > 0
+    }))
+
+    const indexList = this.handle.prepare(`PRAGMA index_list(${quoteIdent(table)})`).all() as {
+      name: string
+      unique: number
+    }[]
+    const indexes = indexList.map((idx) => {
+      const cols = this.handle.prepare(`PRAGMA index_info(${quoteIdent(idx.name)})`).all() as {
+        name: string
+      }[]
+      return { name: idx.name, columns: cols.map((c) => c.name), unique: idx.unique === 1 }
+    })
+
+    const ddl = this.handle
+      .prepare(`SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?`)
+      .get(table) as { sql: string } | undefined
+
+    return { columns, indexes, createSql: ddl?.sql ?? null }
   }
 
   async updateRow(table: string, params: UpdateRowParams): Promise<UpdateRowResult> {

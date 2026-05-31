@@ -17,6 +17,8 @@ import { Button } from '@renderer/components/ui/Button'
 import { ConfirmDialog } from '@renderer/components/ui/ConfirmDialog'
 import { ExportButton } from '@renderer/components/ui/ExportButton'
 import { RowEditModal } from './RowEditModal'
+import { TableStructure } from './TableStructure'
+import { cn } from '@renderer/lib/cn'
 
 interface TableDataTabProps {
   sessionId: string
@@ -49,6 +51,7 @@ export function TableDataTab({
   database,
   readOnly
 }: TableDataTabProps): React.JSX.Element {
+  const [view, setView] = useState<'data' | 'structure'>('data')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(100)
   const [sort, setSort] = useState<SortSpec | null>(null)
@@ -234,110 +237,140 @@ export function TableDataTab({
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2 border-b border-border bg-surface px-3 py-1.5 text-xs text-muted">
         <span className="font-mono text-text">{table}</span>
-        <span className="text-faint">·</span>
-        <span>
-          {from}–{to} of {total.toLocaleString()}
-        </span>
-        {loading && <Spinner size={13} />}
-        {meta && !editable && (
-          <span className="text-faint" title="Inline editing requires a primary key">
-            · read-only (no primary key)
-          </span>
+        <div className="flex items-center rounded-md border border-border p-0.5">
+          {(['data', 'structure'] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              className={cn(
+                'rounded px-2 py-0.5 text-[11px] capitalize transition-colors',
+                view === v ? 'bg-accent-soft text-text' : 'text-muted hover:text-text'
+              )}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
+        {view === 'data' && (
+          <>
+            <span className="text-faint">·</span>
+            <span>
+              {from}–{to} of {total.toLocaleString()}
+            </span>
+            {loading && <Spinner size={13} />}
+            {meta && !editable && (
+              <span className="text-faint" title="Inline editing requires a primary key">
+                · read-only (no primary key)
+              </span>
+            )}
+          </>
         )}
         <div className="flex-1" />
-        {!readOnly && (
+        {view === 'data' && !readOnly && (
           <Button size="sm" variant="secondary" onClick={() => setAddOpen(true)} disabled={!meta}>
             <Plus size={13} />
             Add row
           </Button>
         )}
-        <ExportButton columns={result?.columns ?? []} rows={result?.rows ?? []} filename={table} />
-        <Select
-          className="h-7 w-auto pr-7 text-xs"
-          value={pageSize}
-          onChange={(e) => {
-            setPageSize(Number(e.target.value))
-            setPage(1)
-          }}
-        >
-          {PAGE_SIZES.map((s) => (
-            <option key={s} value={s}>
-              {s} rows
-            </option>
-          ))}
-        </Select>
-        <IconButton
-          label="Previous page"
-          disabled={page <= 1}
-          onClick={() => setPage((p) => p - 1)}
-        >
-          <ChevronLeft size={15} />
-        </IconButton>
-        <span className="tabular-nums">
-          {page} / {totalPages}
-        </span>
-        <IconButton
-          label="Next page"
-          disabled={page >= totalPages}
-          onClick={() => setPage((p) => p + 1)}
-        >
-          <ChevronRight size={15} />
-        </IconButton>
-        <IconButton label="Refresh" onClick={() => void load()}>
-          <RefreshCw size={13} />
-        </IconButton>
-      </div>
-
-      {/* Filter row: column · operator · value · Search */}
-      <div className="flex items-center gap-2 border-b border-border bg-surface px-3 py-1.5">
-        <Select
-          className="h-7 w-auto pr-7 text-xs"
-          aria-label="Filter column"
-          value={filterColumn || (result?.columns[0] ?? '')}
-          onChange={(e) => setFilterColumn(e.target.value)}
-        >
-          {(result?.columns ?? []).map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </Select>
-        <Select
-          className="h-7 w-auto pr-7 text-xs"
-          aria-label="Filter operator"
-          value={filterOp}
-          onChange={(e) => setFilterOp(e.target.value as FilterOperator)}
-        >
-          {FILTER_OPERATORS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </Select>
-        <Input
-          className="h-7 min-w-0 flex-1 text-xs"
-          placeholder={opNeedsNoValue ? 'no value needed' : 'filter value'}
-          disabled={opNeedsNoValue}
-          value={filterValue}
-          onChange={(e) => setFilterValue(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') applyFilter()
-          }}
-        />
-        <Button size="sm" variant="primary" onClick={applyFilter}>
-          <Search size={13} />
-          Search
-        </Button>
-        {filter && (
-          <Button size="sm" variant="ghost" onClick={clearFilter}>
-            <X size={13} />
-            Clear
-          </Button>
+        {view === 'data' && (
+          <>
+            <ExportButton
+              columns={result?.columns ?? []}
+              rows={result?.rows ?? []}
+              filename={table}
+            />
+            <Select
+              className="h-7 w-auto pr-7 text-xs"
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value))
+                setPage(1)
+              }}
+            >
+              {PAGE_SIZES.map((s) => (
+                <option key={s} value={s}>
+                  {s} rows
+                </option>
+              ))}
+            </Select>
+            <IconButton
+              label="Previous page"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => p - 1)}
+            >
+              <ChevronLeft size={15} />
+            </IconButton>
+            <span className="tabular-nums">
+              {page} / {totalPages}
+            </span>
+            <IconButton
+              label="Next page"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              <ChevronRight size={15} />
+            </IconButton>
+            <IconButton label="Refresh" onClick={() => void load()}>
+              <RefreshCw size={13} />
+            </IconButton>
+          </>
         )}
       </div>
 
+      {/* Filter row: column · operator · value · Search */}
+      {view === 'data' && (
+        <div className="flex items-center gap-2 border-b border-border bg-surface px-3 py-1.5">
+          <Select
+            className="h-7 w-auto pr-7 text-xs"
+            aria-label="Filter column"
+            value={filterColumn || (result?.columns[0] ?? '')}
+            onChange={(e) => setFilterColumn(e.target.value)}
+          >
+            {(result?.columns ?? []).map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </Select>
+          <Select
+            className="h-7 w-auto pr-7 text-xs"
+            aria-label="Filter operator"
+            value={filterOp}
+            onChange={(e) => setFilterOp(e.target.value as FilterOperator)}
+          >
+            {FILTER_OPERATORS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </Select>
+          <Input
+            className="h-7 min-w-0 flex-1 text-xs"
+            placeholder={opNeedsNoValue ? 'no value needed' : 'filter value'}
+            disabled={opNeedsNoValue}
+            value={filterValue}
+            onChange={(e) => setFilterValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') applyFilter()
+            }}
+          />
+          <Button size="sm" variant="primary" onClick={applyFilter}>
+            <Search size={13} />
+            Search
+          </Button>
+          {filter && (
+            <Button size="sm" variant="ghost" onClick={clearFilter}>
+              <X size={13} />
+              Clear
+            </Button>
+          )}
+        </div>
+      )}
+
       <div className="min-h-0 flex-1">
-        {error ? (
+        {view === 'structure' ? (
+          <TableStructure sessionId={sessionId} table={table} database={database} />
+        ) : error ? (
           <div className="flex h-full items-center justify-center gap-2 px-6 text-center text-xs text-danger">
             <AlertTriangle size={16} /> {error}
           </div>
