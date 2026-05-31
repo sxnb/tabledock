@@ -53,8 +53,10 @@ Browse, query, edit, and visualize your databases — all from one minimalist wo
 - **Server-side filtering** — pick a column, an operator (`=`, `≠`, `>`, `<`, `LIKE`, `contains`, `is null`, …), and a value.
 - **Inline cell editing** — double-click a cell to edit; type-aware inputs (text, number, enum/boolean dropdowns) write back via a primary-key-scoped `UPDATE`.
 - **Add row** and a row context menu to **copy as CSV / SQL**, copy a single cell, or delete a row.
+- **Cell detail viewer** — expand any cell into a roomy panel to read/edit long text, pretty-printed JSON, or blobs.
 - **Foreign-key navigation** — jump from an FK cell straight to the referenced row in a new, pre-filtered tab.
 - **Table Structure view** — columns (type, nullability, default, PK, extra), indexes, and the `CREATE` statement.
+- **Schema editing** — add / drop columns and rename / drop tables right from the Structure view and table list.
 
 ### 📤 Import & export
 
@@ -66,7 +68,9 @@ Browse, query, edit, and visualize your databases — all from one minimalist wo
 
 - CodeMirror 6 editor with syntax highlighting and a dialect tuned per connection.
 - **Schema-aware autocomplete** of table and column names.
-- Run with **⌘/Ctrl + Enter**; results render in the same fast grid.
+- Run with **⌘/Ctrl + Enter**; results render in the same fast grid with **execution time**.
+- **Format** (dialect-aware pretty-printer) and **Explain** (query plan) buttons.
+- **Destructive-statement guard** — confirms before running `UPDATE`/`DELETE` without a `WHERE`, or `TRUNCATE`/`DROP`.
 - **Per-connection query history** and **saved queries** (named SQL snippets) in side panels — click to reopen in a new tab.
 
 ### 🎹 Command palette & shortcuts
@@ -92,19 +96,19 @@ Browse, query, edit, and visualize your databases — all from one minimalist wo
 
 ### 🎨 Design
 
-- Minimalist, elegant UI with blue/purple accents, reusable component primitives, and tooltips throughout.
+- Minimalist, elegant UI with blue/purple accents, reusable component primitives, tooltips, and **toast notifications** throughout.
 - **Light / dark / system** theme modes, plus an Arc-style **customizable sidebar** (background color + pixelated noise) configured in a Settings modal.
 
 ---
 
 ## 🛠️ Tech Stack
 
-| Layer            | Technologies                                                               |
-| ---------------- | -------------------------------------------------------------------------- |
-| **Shell**        | Electron, [electron-vite](https://electron-vite.org/), electron-builder    |
-| **UI**           | React 19, TypeScript, Tailwind CSS v4, Zustand, lucide-react, Radix UI     |
-| **Editor & viz** | CodeMirror 6 (`@codemirror/lang-sql`), React Flow (`@xyflow/react`), dagre |
-| **Drivers**      | `mysql2`, `pg`, `mssql`, `mongodb`, `ioredis`, `better-sqlite3`            |
+| Layer            | Technologies                                                                              |
+| ---------------- | ----------------------------------------------------------------------------------------- |
+| **Shell**        | Electron, [electron-vite](https://electron-vite.org/), electron-builder                   |
+| **UI**           | React 19, TypeScript, Tailwind CSS v4, Zustand, lucide-react, Radix UI                    |
+| **Editor & viz** | CodeMirror 6 (`@codemirror/lang-sql`), sql-formatter, React Flow (`@xyflow/react`), dagre |
+| **Drivers**      | `mysql2`, `pg`, `mssql`, `mongodb`, `ioredis`, `better-sqlite3`                           |
 
 Database drivers run in the Electron **main process** and are exposed to the renderer over a typed IPC bridge — the renderer never touches the network or filesystem directly.
 
@@ -173,8 +177,8 @@ src/
         │   ├── relational/  # Table view, structure, query editor, history, relation diagram
         │   ├── mongo/       # Collection browser & document editor
         │   └── redis/       # Key browser & command console
-        ├── lib/             # Helpers (CSV/JSON parsers & exporters, formatting)
-        └── store/           # Zustand stores (connections, workspace, settings)
+        ├── lib/             # Helpers (CSV/JSON parsers & exporters, SQL dialect & safety)
+        └── store/           # Zustand stores (connections, workspace, settings, toasts)
 ```
 
 ### Architecture
@@ -189,8 +193,9 @@ Renderer (React)  ──invoke──▶  Preload (window.api)  ──IPC──�
 
 Planned/possible enhancements:
 
-- Toast notifications (e.g. import row counts) and batched bulk inserts
-- Schema editing (create / alter / drop tables, columns, indexes)
+- Create-table builder and index management
+- Batched bulk inserts and query cancellation
+- Charts and column profiling from query results
 - More database types (DuckDB, …)
 
 ---
