@@ -90,8 +90,10 @@ Browse, query, edit, and visualize your databases — all from one minimalist wo
 
 ### 🧬 Redis
 
-- Key browser with `SCAN`-based pattern search and per-key type badges.
-- Type-aware value viewer for strings, lists, sets, sorted sets, and hashes.
+- Key browser with `SCAN`-based pattern search, per-key type badges, and a `DBSIZE` count per database.
+- Type-aware value viewer for strings, lists, sets, sorted sets, and hashes, with **TTL, memory, encoding, and element-count** insights, JSON pretty-printing, copy, and an in-panel filter.
+- **Paginated collections** — large lists/sets/hashes/zsets load page-by-page rather than all at once.
+- **Full editing** — create keys; edit string values; add/edit/remove hash fields and list/set/zset members; rename, set/clear TTL, or delete keys (all gated by read-only mode).
 - Built-in **command console**.
 
 ### 🎨 Design
