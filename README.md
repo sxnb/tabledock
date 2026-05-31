@@ -26,6 +26,10 @@ Browse, query, edit, and visualize your databases — all from one minimalist wo
 ![Redis](https://img.shields.io/badge/Redis-FF4438?logo=redis&logoColor=white)
 ![SQLite](https://img.shields.io/badge/SQLite-003B57?logo=sqlite&logoColor=white)
 
+<br/>
+
+<img src="screenshot.png" width="880" alt="DataDock browsing a relational database — sidebar with connections and tables, and a paginated data grid" />
+
 </div>
 
 ---
