@@ -1,6 +1,14 @@
 import Redis from 'ioredis'
 import { buildTls } from '../ssl'
-import type { ConnectionConfig, RedisDriverApi, RedisScanResult, RedisValue } from '../types'
+import type {
+  ConnectionConfig,
+  RedisDriverApi,
+  RedisScanResult,
+  RedisValue,
+  RedisValuePage
+} from '../types'
+
+const PAGE_SIZE = 200
 
 export class RedisDriver implements RedisDriverApi {
   readonly kind = 'redis' as const
@@ -61,27 +69,61 @@ export class RedisDriver implements RedisDriverApi {
   async getKey(key: string): Promise<RedisValue> {
     const type = await this.handle.type(key)
     if (type === 'none') return { type: 'none', value: null }
+    if (type === 'string') {
+      const meta = await this.keyMeta(key)
+      return { type, value: await this.handle.get(key), ...meta }
+    }
+    // Collections: load the first page plus metadata.
+    const [meta, page] = await Promise.all([this.keyMeta(key), this.readPage(key, type, '')])
+    return { type, value: page.value, cursor: page.cursor, ...meta }
+  }
 
-    const meta = await this.keyMeta(key)
+  /** Fetch the next page of a collection key (list/set/hash/zset). */
+  async pageKey(key: string, cursor: string, count: number): Promise<RedisValuePage> {
+    const type = await this.handle.type(key)
+    return this.readPage(key, type, cursor, count)
+  }
+
+  /**
+   * Read one page of a collection. Lists/zsets page by index range; sets/hashes
+   * page with SSCAN/HSCAN cursors. An empty cursor means "from the start" on the
+   * way in and "no more pages" on the way out.
+   */
+  private async readPage(
+    key: string,
+    type: string,
+    cursor: string,
+    count = PAGE_SIZE
+  ): Promise<RedisValuePage> {
     switch (type) {
-      case 'string':
-        return { type, value: await this.handle.get(key), ...meta }
-      case 'list':
-        return { type, value: await this.handle.lrange(key, 0, -1), ...meta }
-      case 'set':
-        return { type, value: await this.handle.smembers(key), ...meta }
-      case 'zset': {
-        const flat = await this.handle.zrange(key, 0, -1, 'WITHSCORES')
-        const pairs: { member: string; score: string }[] = []
-        for (let i = 0; i < flat.length; i += 2) {
-          pairs.push({ member: flat[i], score: flat[i + 1] })
-        }
-        return { type, value: pairs, ...meta }
+      case 'list': {
+        const start = cursor ? Number(cursor) : 0
+        const items = await this.handle.lrange(key, start, start + count - 1)
+        const next = start + items.length
+        const len = await this.handle.llen(key)
+        return { value: items, cursor: next < len ? String(next) : '' }
       }
-      case 'hash':
-        return { type, value: await this.handle.hgetall(key), ...meta }
+      case 'set': {
+        const [nc, members] = await this.handle.sscan(key, cursor || '0', 'COUNT', count)
+        return { value: members, cursor: nc === '0' ? '' : nc }
+      }
+      case 'zset': {
+        const start = cursor ? Number(cursor) : 0
+        const flat = await this.handle.zrange(key, start, start + count - 1, 'WITHSCORES')
+        const pairs: { member: string; score: string }[] = []
+        for (let i = 0; i < flat.length; i += 2) pairs.push({ member: flat[i], score: flat[i + 1] })
+        const next = start + pairs.length
+        const len = await this.handle.zcard(key)
+        return { value: pairs, cursor: next < len ? String(next) : '' }
+      }
+      case 'hash': {
+        const [nc, flat] = await this.handle.hscan(key, cursor || '0', 'COUNT', count)
+        const obj: Record<string, string> = {}
+        for (let i = 0; i < flat.length; i += 2) obj[flat[i]] = flat[i + 1]
+        return { value: obj, cursor: nc === '0' ? '' : nc }
+      }
       default:
-        return { type, value: `(unsupported type: ${type})`, ...meta }
+        return { value: `(unsupported type: ${type})`, cursor: '' }
     }
   }
 

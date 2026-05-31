@@ -276,6 +276,15 @@ export interface RedisValue {
   encoding?: string
   /** Element count for collections (list/set/zset/hash length). */
   length?: number
+  /** Next-page token for collections; empty/undefined means no more pages. */
+  cursor?: string
+}
+
+/** One page of a Redis collection value, plus the token for the next page. */
+export interface RedisValuePage {
+  value: unknown
+  /** Empty string when there are no more pages. */
+  cursor: string
 }
 
 /** A MongoDB document, serialized as Extended JSON for transport/display. */
@@ -370,6 +379,8 @@ export interface DataDockApi {
       opts: { pattern: string; cursor: string; count: number }
     ): Promise<RedisScanResult>
     get(sessionId: string, key: string): Promise<RedisValue>
+    /** Fetch the next page of a collection key. */
+    page(sessionId: string, key: string, cursor: string, count: number): Promise<RedisValuePage>
     command(sessionId: string, args: string[]): Promise<unknown>
     /** Number of keys in the current database (DBSIZE). */
     dbSize(sessionId: string): Promise<number>

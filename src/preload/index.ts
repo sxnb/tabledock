@@ -19,6 +19,7 @@ import type {
   QueryResult,
   RedisScanResult,
   RedisValue,
+  RedisValuePage,
   RowsResult,
   SavedQuery,
   SchemaGraph,
@@ -138,6 +139,12 @@ const api: DataDockApi = {
     ): Promise<RedisScanResult> => invoke('redis:keys', sessionId, opts),
     get: (sessionId: string, key: string): Promise<RedisValue> =>
       invoke('redis:get', sessionId, key),
+    page: (
+      sessionId: string,
+      key: string,
+      cursor: string,
+      count: number
+    ): Promise<RedisValuePage> => invoke('redis:page', sessionId, key, cursor, count),
     command: (sessionId: string, args: string[]): Promise<unknown> =>
       invoke('redis:command', sessionId, args),
     dbSize: (sessionId: string): Promise<number> => invoke('redis:dbSize', sessionId),

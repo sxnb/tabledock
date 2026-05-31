@@ -4,6 +4,7 @@ import type {
   QueryResult,
   RedisScanResult,
   RedisValue,
+  RedisValuePage,
   MongoFindOptions,
   MongoFindResult,
   RowsResult,
@@ -53,6 +54,7 @@ export interface RedisDriverApi {
   selectDb(index: number): Promise<void>
   listKeys(opts: { pattern: string; cursor: string; count: number }): Promise<RedisScanResult>
   getKey(key: string): Promise<RedisValue>
+  pageKey(key: string, cursor: string, count: number): Promise<RedisValuePage>
   runCommand(args: string[]): Promise<unknown>
   dbSize(): Promise<number>
   deleteKey(key: string): Promise<void>

@@ -163,6 +163,9 @@ export function registerDbIpc(): void {
       redis(sessionId).listKeys(opts)
   )
   handle('redis:get', (sessionId: string, key: string) => redis(sessionId).getKey(key))
+  handle('redis:page', (sessionId: string, key: string, cursor: string, count: number) =>
+    redis(sessionId).pageKey(key, cursor, count)
+  )
   handle('redis:command', (sessionId: string, args: string[]) => redis(sessionId).runCommand(args))
   handle('redis:dbSize', (sessionId: string) => redis(sessionId).dbSize())
   handle('redis:delete', (sessionId: string, key: string) => {

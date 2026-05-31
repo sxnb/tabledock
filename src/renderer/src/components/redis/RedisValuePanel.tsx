@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { RefreshCw, Plus, Pencil, Trash2, Copy, Braces, Search } from 'lucide-react'
 import type { RedisValue } from '@shared/types'
 import { IconButton } from '@renderer/components/ui/IconButton'
 import { Button } from '@renderer/components/ui/Button'
+import { Spinner } from '@renderer/components/ui/Spinner'
 import { Modal } from '@renderer/components/ui/Modal'
 import { Input } from '@renderer/components/ui/Input'
 import { CellDetailModal } from '@renderer/components/ui/CellDetailModal'
@@ -31,6 +32,14 @@ interface EntryForm {
 function copyText(text: string, label: string): void {
   void navigator.clipboard.writeText(text)
   toast.success(label)
+}
+
+/** Append a freshly fetched page to the already-loaded value, by Redis type. */
+function mergePage(type: string, prev: unknown, next: unknown): unknown {
+  if (type === 'hash') {
+    return { ...(prev as Record<string, string>), ...(next as Record<string, string>) }
+  }
+  return [...(prev as unknown[]), ...(next as unknown[])]
 }
 
 /** Returns pretty-printed JSON if the string parses to an object/array, else null. */
@@ -70,6 +79,30 @@ export function RedisValuePanel({
   const [editStringOpen, setEditStringOpen] = useState(false)
   const [filter, setFilter] = useState('')
   const [rawString, setRawString] = useState(false)
+  // Accumulated value across loaded pages, reset whenever the key is (re)loaded.
+  const [items, setItems] = useState<unknown>(value.value)
+  const [cursor, setCursor] = useState(value.cursor ?? '')
+  const [loadingMore, setLoadingMore] = useState(false)
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset paging when a new key/value loads
+    setItems(value.value)
+    setCursor(value.cursor ?? '')
+  }, [value])
+
+  const loadMore = async (): Promise<void> => {
+    if (!cursor) return
+    setLoadingMore(true)
+    try {
+      const page = await window.api.redis.page(sessionId, keyName, cursor, 200)
+      setItems((prev) => mergePage(value.type, prev, page.value))
+      setCursor(page.cursor)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
+    } finally {
+      setLoadingMore(false)
+    }
+  }
 
   const write = async (args: string[]): Promise<void> => {
     try {
@@ -192,7 +225,7 @@ export function RedisValuePanel({
 
       <div className="min-h-0 flex-1 overflow-auto p-4 font-mono text-xs">
         <Body
-          value={value}
+          value={{ ...value, value: items }}
           keyName={keyName}
           readOnly={readOnly}
           filter={filter}
@@ -201,6 +234,16 @@ export function RedisValuePanel({
           write={write}
           setEntry={setEntry}
         />
+        {cursor && (
+          <button
+            onClick={() => void loadMore()}
+            disabled={loadingMore}
+            className="mt-2 flex w-full items-center justify-center gap-2 rounded-md py-1.5 text-xs text-accent hover:bg-surface-2 disabled:opacity-60"
+          >
+            {loadingMore && <Spinner size={12} />}
+            Load more…
+          </button>
+        )}
       </div>
 
       {editStringOpen && (
