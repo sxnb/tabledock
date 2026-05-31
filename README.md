@@ -6,7 +6,7 @@
 
 **A sleek, modern desktop database client for MySQL, MariaDB, PostgreSQL, SQL Server, MongoDB, Redis & SQLite.**
 
-Browse, query, edit, and visualize your databases — all from one minimalist, dark-themed workspace.
+Browse, query, edit, and visualize your databases — all from one minimalist workspace with light & dark themes.
 
 <br/>
 
@@ -37,21 +37,38 @@ Browse, query, edit, and visualize your databases — all from one minimalist, d
 - Save connections for **MySQL, MariaDB, PostgreSQL, SQL Server, MongoDB, Redis, and SQLite** and reopen them instantly on relaunch.
 - Passwords encrypted at rest via the OS keychain (Electron `safeStorage`) — never stored in plaintext.
 - Optional **SSL/TLS** with CA, client certificate, and key files.
+- **SSH tunneling** with password, private-key, or SSH-agent authentication (secrets encrypted alongside the connection).
+- **Read-only mode** — flag a connection to block every write (inline edits, add/delete row, import, dumps), enforced in the main process.
 - Tag each connection with a **color** for at-a-glance identification (shown in the sidebar and as an accent bar atop the editor).
 - Open multiple connections at once, each in its own workspace with independent tabs.
 
 ### 📋 Browse & edit (relational)
 
-- Database picker, searchable table list, and a **tab per table**.
+- Database picker, searchable table list, and a **tab per table** with a **Data / Structure** toggle.
 - Paginated row grids with **resizable columns** and **server-side sorting** (click a header to cycle asc → desc).
 - **Server-side filtering** — pick a column, an operator (`=`, `≠`, `>`, `<`, `LIKE`, `contains`, `is null`, …), and a value.
 - **Inline cell editing** — double-click a cell to edit; type-aware inputs (text, number, enum/boolean dropdowns) write back via a primary-key-scoped `UPDATE`.
+- **Add row** and a row context menu to **copy as CSV / SQL**, copy a single cell, or delete a row.
+- **Foreign-key navigation** — jump from an FK cell straight to the referenced row in a new, pre-filtered tab.
+- **Table Structure view** — columns (type, nullability, default, PK, extra), indexes, and the `CREATE` statement.
+
+### 📤 Import & export
+
+- **Export results** to **CSV or JSON** — the entire table or full filtered/sorted set, not just the visible page.
+- **Import CSV / JSON** into a table — pick a file, auto-map columns (with per-column overrides), preview, and bulk-insert.
+- **Import SQL** scripts (drag-and-drop or file picker) and **create dumps** (SQL for relational, JSON for Mongo, command stream for Redis) via the native menu.
 
 ### ⌨️ SQL editor
 
 - CodeMirror 6 editor with syntax highlighting and a dialect tuned per connection.
 - **Schema-aware autocomplete** of table and column names.
 - Run with **⌘/Ctrl + Enter**; results render in the same fast grid.
+- **Per-connection query history** and **saved queries** (named SQL snippets) in side panels — click to reopen in a new tab.
+
+### 🎹 Command palette & shortcuts
+
+- **⌘/Ctrl + K** opens a command palette to jump to a saved connection, open a table or new query, or run a quick action — with fuzzy filtering and arrow-key navigation.
+- **⌘/Ctrl + T** opens a new query tab in the active relational connection.
 
 ### 🕸️ Relation diagram
 
@@ -71,7 +88,8 @@ Browse, query, edit, and visualize your databases — all from one minimalist, d
 
 ### 🎨 Design
 
-- Minimalist, elegant dark UI with blue/purple accents, reusable component primitives, and tooltips throughout.
+- Minimalist, elegant UI with blue/purple accents, reusable component primitives, and tooltips throughout.
+- **Light / dark / system** theme modes, plus an Arc-style **customizable sidebar** (background color + pixelated noise) configured in a Settings modal.
 
 ---
 
@@ -148,9 +166,11 @@ src/
     └── src/
         ├── components/
         │   ├── ui/          # Reusable primitives (Button, Modal, Tabs, DataTable, …)
-        │   ├── relational/  # Table view, query editor, relation diagram
+        │   ├── relational/  # Table view, structure, query editor, history, relation diagram
+        │   ├── mongo/       # Collection browser & document editor
         │   └── redis/       # Key browser & command console
-        └── store/           # Zustand stores (connections, workspace)
+        ├── lib/             # Helpers (CSV/JSON parsers & exporters, formatting)
+        └── store/           # Zustand stores (connections, workspace, settings)
 ```
 
 ### Architecture
@@ -165,8 +185,8 @@ Renderer (React)  ──invoke──▶  Preload (window.api)  ──IPC──�
 
 Planned/possible enhancements:
 
-- Export query results (CSV / JSON)
-- Persisted column widths and saved queries
+- Toast notifications (e.g. import row counts) and batched bulk inserts
+- Schema editing (create / alter / drop tables, columns, indexes)
 - More database types (DuckDB, …)
 
 ---
