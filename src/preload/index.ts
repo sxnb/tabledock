@@ -70,6 +70,11 @@ const api: DataDockApi = {
     ): Promise<UpdateRowResult> => invoke('db:insert', sessionId, table, params),
     importSqlFiles: (sessionId: string, paths: string[], database?: string): Promise<number> =>
       invoke('db:importSqlFiles', sessionId, paths, database),
+    importTableData: (
+      sessionId: string,
+      table: string,
+      params: { database?: string; rows: Record<string, unknown>[] }
+    ): Promise<number> => invoke('db:importTableData', sessionId, table, params),
     createDump: (sessionId: string, params: CreateDumpParams): Promise<string | null> =>
       invoke('db:createDump', sessionId, params),
     schemaGraph: (sessionId: string, database?: string): Promise<SchemaGraph> =>

@@ -306,6 +306,12 @@ export interface DataDockApi {
     insertRow(sessionId: string, table: string, params: InsertRowParams): Promise<UpdateRowResult>
     /** Read SQL files and execute them against the connection. Returns count run. */
     importSqlFiles(sessionId: string, paths: string[], database?: string): Promise<number>
+    /** Bulk-insert rows (mapped objects) into a table. Returns count inserted. */
+    importTableData(
+      sessionId: string,
+      table: string,
+      params: { database?: string; rows: Record<string, unknown>[] }
+    ): Promise<number>
     /** Prompt for a save location and write a dump; returns the path, or null if canceled. */
     createDump(sessionId: string, params: CreateDumpParams): Promise<string | null>
     schemaGraph(sessionId: string, database?: string): Promise<SchemaGraph>

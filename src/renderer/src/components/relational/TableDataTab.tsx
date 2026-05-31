@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ChevronLeft, ChevronRight, RefreshCw, AlertTriangle, Search, X, Plus } from 'lucide-react'
+import {
+  ChevronLeft,
+  ChevronRight,
+  RefreshCw,
+  AlertTriangle,
+  Search,
+  X,
+  Plus,
+  FileUp
+} from 'lucide-react'
 import type {
   DriverKind,
   FilterOperator,
@@ -17,6 +26,7 @@ import { Button } from '@renderer/components/ui/Button'
 import { ConfirmDialog } from '@renderer/components/ui/ConfirmDialog'
 import { ExportButton } from '@renderer/components/ui/ExportButton'
 import { RowEditModal } from './RowEditModal'
+import { ImportDataModal } from './ImportDataModal'
 import { TableStructure } from './TableStructure'
 import { cn } from '@renderer/lib/cn'
 
@@ -69,6 +79,7 @@ export function TableDataTab({
   const [editRowIndex, setEditRowIndex] = useState<number | null>(null)
   const [deleteRowIndex, setDeleteRowIndex] = useState<number | null>(null)
   const [addOpen, setAddOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   // Draft filter inputs (applied only when Search is clicked).
   const [filterColumn, setFilterColumn] = useState(initialFilter?.column ?? '')
   const [filterOp, setFilterOp] = useState<FilterOperator>(initialFilter?.operator ?? 'eq')
@@ -236,6 +247,15 @@ export function TableDataTab({
     [sessionId, table, database, load]
   )
 
+  const importRows = useCallback(
+    async (rows: Record<string, unknown>[]): Promise<number> => {
+      const count = await window.api.db.importTableData(sessionId, table, { database, rows })
+      await load()
+      return count
+    },
+    [sessionId, table, database, load]
+  )
+
   const confirmDelete = async (): Promise<void> => {
     if (deleteRowIndex === null) return
     try {
@@ -301,10 +321,21 @@ export function TableDataTab({
         )}
         <div className="flex-1" />
         {view === 'data' && !readOnly && (
-          <Button size="sm" variant="secondary" onClick={() => setAddOpen(true)} disabled={!meta}>
-            <Plus size={13} />
-            Add row
-          </Button>
+          <>
+            <Button size="sm" variant="secondary" onClick={() => setAddOpen(true)} disabled={!meta}>
+              <Plus size={13} />
+              Add row
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setImportOpen(true)}
+              disabled={!meta}
+            >
+              <FileUp size={13} />
+              Import
+            </Button>
+          </>
         )}
         {view === 'data' && (
           <>
@@ -456,6 +487,16 @@ export function TableDataTab({
           values={result.columns.map(() => null)}
           onClose={() => setAddOpen(false)}
           onSave={insertRow}
+        />
+      )}
+
+      {importOpen && (
+        <ImportDataModal
+          open
+          table={table}
+          tableColumns={meta?.columns.map((c) => c.name) ?? result?.columns ?? []}
+          onClose={() => setImportOpen(false)}
+          onImport={importRows}
         />
       )}
 

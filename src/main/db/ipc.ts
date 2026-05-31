@@ -91,6 +91,24 @@ export function registerDbIpc(): void {
   handle('db:query', (sessionId: string, sql: string, database?: string) =>
     relational(sessionId).runQuery(sql, database)
   )
+  handle(
+    'db:importTableData',
+    async (
+      sessionId: string,
+      table: string,
+      params: { database?: string; rows: Record<string, unknown>[] }
+    ) => {
+      assertWritable(sessionId)
+      const driver = relational(sessionId)
+      let inserted = 0
+      for (const values of params.rows) {
+        if (Object.keys(values).length === 0) continue
+        await driver.insertRow(table, { database: params.database, values })
+        inserted++
+      }
+      return inserted
+    }
+  )
   handle('db:importSqlFiles', async (sessionId: string, paths: string[], database?: string) => {
     assertWritable(sessionId)
     const driver = relational(sessionId)
