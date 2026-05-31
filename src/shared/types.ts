@@ -140,6 +140,18 @@ export interface InsertRowParams {
   values: Record<string, unknown>
 }
 
+export interface DumpOptions {
+  /** Prepend a CREATE DATABASE statement (MySQL/PostgreSQL only). */
+  includeCreateDatabase?: boolean
+}
+
+export interface CreateDumpParams {
+  database?: string
+  includeCreateDatabase: boolean
+  /** Connection name, used for the default dump filename. */
+  name?: string
+}
+
 /** A single executed-query record in a connection's history. */
 export interface QueryHistoryEntry {
   id: string
@@ -230,6 +242,10 @@ export interface DataDockApi {
     update(sessionId: string, table: string, params: UpdateRowParams): Promise<UpdateRowResult>
     deleteRow(sessionId: string, table: string, params: DeleteRowParams): Promise<UpdateRowResult>
     insertRow(sessionId: string, table: string, params: InsertRowParams): Promise<UpdateRowResult>
+    /** Read SQL files and execute them against the connection. Returns count run. */
+    importSqlFiles(sessionId: string, paths: string[], database?: string): Promise<number>
+    /** Prompt for a save location and write a dump; returns the path, or null if canceled. */
+    createDump(sessionId: string, params: CreateDumpParams): Promise<string | null>
     schemaGraph(sessionId: string, database?: string): Promise<SchemaGraph>
     query(sessionId: string, sql: string, database?: string): Promise<QueryResult>
   }
@@ -244,6 +260,7 @@ export interface DataDockApi {
   }
   dialog: {
     openFile(options?: OpenFileOptions): Promise<string | null>
+    openFiles(options?: OpenFileOptions): Promise<string[]>
   }
   history: {
     list(connectionId: string): Promise<QueryHistoryEntry[]>
@@ -258,6 +275,27 @@ export interface DataDockApi {
     /** Trigger a trackpad "level change" haptic (macOS only; no-op elsewhere). */
     tap(): void
   }
+  app: {
+    /** Update the native window background color (matches the active theme). */
+    setBackgroundColor(color: string): void
+  }
+  menu: {
+    /** Tell the main process about the active connection so it can build the menu. */
+    setContext(context: MenuContext): void
+    /** Subscribe to a menu action; each returns an unsubscribe fn. */
+    onDisconnect(callback: () => void): () => void
+    onImport(callback: () => void): () => void
+    onDump(callback: () => void): () => void
+  }
+}
+
+/** Describes the active connection, used by the main process to build the menu. */
+export interface MenuContext {
+  /** Backend session id, or null when no connection is active. */
+  sessionId: string | null
+  kind: DriverKind | null
+  database?: string
+  name?: string
 }
 
 export interface OpenFileOptions {

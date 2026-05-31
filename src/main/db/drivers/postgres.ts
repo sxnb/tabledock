@@ -1,6 +1,7 @@
 import pg from 'pg'
 import { buildTls } from '../ssl'
 import { buildFilter } from '../filter'
+import { buildInserts } from '../sqlformat'
 import type {
   ColumnMeta,
   ConnectionConfig,
@@ -16,7 +17,8 @@ import type {
   SchemaTable,
   TableMeta,
   UpdateRowParams,
-  UpdateRowResult
+  UpdateRowResult,
+  DumpOptions
 } from '../types'
 
 // Return numeric/bigint types as-is where safe; pg parses int8 as string by default.
@@ -244,6 +246,36 @@ export class PostgresDriver implements RelationalDriver {
       cols.map((c) => values[c])
     )
     return { affectedRows: res.rowCount ?? 0 }
+  }
+
+  async runScript(sql: string, database?: string): Promise<void> {
+    // The simple query protocol runs multiple ;-separated statements.
+    const pool = await this.poolFor(database || this.currentDatabase)
+    await pool.query(sql)
+  }
+
+  async dumpDatabase(database?: string, options?: DumpOptions): Promise<string> {
+    const target = database || this.currentDatabase
+    const pool = await this.poolFor(target)
+    const tablesRes = await pool.query<{ table_name: string }>(
+      `SELECT table_name FROM information_schema.tables
+       WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+       ORDER BY table_name`
+    )
+    const parts: string[] = [
+      `-- DataDock data dump of ${target} — ${new Date().toISOString()}`,
+      '-- Note: schema (DDL) is not included; data only.\n'
+    ]
+    if (options?.includeCreateDatabase) parts.push(`CREATE DATABASE ${quoteIdent(target)};\n`)
+    for (const { table_name } of tablesRes.rows) {
+      const qualified = `${quoteIdent('public')}.${quoteIdent(table_name)}`
+      const res = await pool.query(`SELECT * FROM ${qualified}`)
+      const columns = res.fields.map((f) => f.name)
+      const data = res.rows.map((r: Record<string, unknown>) => columns.map((c) => r[c]))
+      const inserts = buildInserts(qualified, columns, data, quoteIdent)
+      if (inserts) parts.push(inserts)
+    }
+    return parts.join('\n')
   }
 
   async getSchemaGraph(database?: string): Promise<SchemaGraph> {

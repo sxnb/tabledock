@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3'
 import { basename } from 'path'
 import { buildFilter } from '../filter'
+import { buildInserts } from '../sqlformat'
 import type {
   ColumnMeta,
   ConnectionConfig,
@@ -156,6 +157,35 @@ export class SqliteDriver implements RelationalDriver {
     )
     const info = stmt.run(...(cols.map((c) => bind(values[c])) as never[]))
     return { affectedRows: info.changes }
+  }
+
+  async runScript(sql: string): Promise<void> {
+    this.handle.exec(sql)
+  }
+
+  async dumpDatabase(): Promise<string> {
+    const tables = this.handle
+      .prepare(
+        `SELECT name, sql FROM sqlite_master
+         WHERE type = 'table' AND name NOT LIKE 'sqlite_%'
+         ORDER BY name`
+      )
+      .all() as { name: string; sql: string }[]
+    const parts: string[] = [
+      `-- DataDock dump of ${basename(this.config.filePath || 'database')} — ${new Date().toISOString()}\n`
+    ]
+    for (const { name, sql } of tables) {
+      parts.push(`DROP TABLE IF EXISTS ${quoteIdent(name)};`)
+      if (sql) parts.push(`${sql};`)
+      const stmt = this.handle.prepare(`SELECT * FROM ${quoteIdent(name)}`)
+      const cols = stmt.columns().map((c) => c.name)
+      const rows = stmt.all() as Record<string, unknown>[]
+      const data = rows.map((r) => cols.map((c) => r[c]))
+      const inserts = buildInserts(quoteIdent(name), cols, data, quoteIdent)
+      if (inserts) parts.push(inserts)
+      parts.push('')
+    }
+    return parts.join('\n')
   }
 
   async getSchemaGraph(): Promise<SchemaGraph> {

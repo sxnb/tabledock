@@ -8,13 +8,18 @@ const DEFAULTS: AppSettings = {
 
 interface SettingsState {
   settings: AppSettings
+  /** The theme actually in effect (derived; 'system' resolved against the OS). */
+  resolvedTheme: 'light' | 'dark'
   load: () => Promise<void>
   setSidebar: (patch: Partial<SidebarSettings>) => Promise<void>
   setThemeMode: (mode: ThemeMode) => Promise<void>
+  setResolvedTheme: (theme: 'light' | 'dark') => void
 }
 
 export const useSettings = create<SettingsState>((set, get) => ({
   settings: DEFAULTS,
+  resolvedTheme: 'dark',
+  setResolvedTheme: (resolvedTheme) => set({ resolvedTheme }),
   load: async () => {
     try {
       set({ settings: await window.api.settings.get() })

@@ -4,6 +4,7 @@ import { sql, MySQL, PostgreSQL, SQLite, StandardSQL, type SQLDialect } from '@c
 import { oneDark } from '@codemirror/theme-one-dark'
 import { Play, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import type { DriverKind, QueryResult } from '@shared/types'
+import { useSettings } from '@renderer/store/settings'
 import { DataTable } from '@renderer/components/ui/DataTable'
 import { Button } from '@renderer/components/ui/Button'
 import { Spinner } from '@renderer/components/ui/Spinner'
@@ -40,6 +41,7 @@ export function QueryTab({
   sql: sqlText,
   onSqlChange
 }: QueryTabProps): React.JSX.Element {
+  const resolvedTheme = useSettings((s) => s.resolvedTheme)
   const [result, setResult] = useState<QueryResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [running, setRunning] = useState(false)
@@ -106,7 +108,7 @@ export function QueryTab({
           value={sqlText}
           onChange={onSqlChange}
           height="180px"
-          theme={oneDark}
+          theme={resolvedTheme === 'dark' ? oneDark : 'light'}
           extensions={extensions}
           basicSetup={{ highlightActiveLine: true, foldGutter: false }}
         />

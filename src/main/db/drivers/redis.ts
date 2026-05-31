@@ -90,4 +90,36 @@ export class RedisDriver implements RedisDriverApi {
     // ioredis exposes arbitrary commands via call().
     return this.handle.call(cmd, ...rest)
   }
+
+  async dumpKeyspace(): Promise<string> {
+    const q = (s: string): string => `"${s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
+    const lines: string[] = []
+    let cursor = '0'
+    do {
+      const [next, keys] = await this.handle.scan(cursor, 'COUNT', 500)
+      cursor = next
+      for (const key of keys) {
+        const type = await this.handle.type(key)
+        if (type === 'string') {
+          lines.push(`SET ${q(key)} ${q((await this.handle.get(key)) ?? '')}`)
+        } else if (type === 'list') {
+          const vals = await this.handle.lrange(key, 0, -1)
+          if (vals.length) lines.push(`RPUSH ${q(key)} ${vals.map(q).join(' ')}`)
+        } else if (type === 'set') {
+          const members = await this.handle.smembers(key)
+          if (members.length) lines.push(`SADD ${q(key)} ${members.map(q).join(' ')}`)
+        } else if (type === 'zset') {
+          const flat = await this.handle.zrange(key, 0, -1, 'WITHSCORES')
+          const pairs: string[] = []
+          for (let i = 0; i < flat.length; i += 2) pairs.push(`${flat[i + 1]} ${q(flat[i])}`)
+          if (pairs.length) lines.push(`ZADD ${q(key)} ${pairs.join(' ')}`)
+        } else if (type === 'hash') {
+          const hash = await this.handle.hgetall(key)
+          const fv = Object.entries(hash).map(([f, v]) => `${q(f)} ${q(v)}`)
+          if (fv.length) lines.push(`HSET ${q(key)} ${fv.join(' ')}`)
+        }
+      }
+    } while (cursor !== '0')
+    return lines.join('\n') + '\n'
+  }
 }

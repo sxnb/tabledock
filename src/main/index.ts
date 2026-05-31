@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow } from 'electron'
+import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -7,6 +7,7 @@ import { registerStoreIpc } from './store'
 import { registerHistoryIpc } from './history'
 import { registerSettingsIpc } from './settings'
 import { registerHapticsIpc } from './haptics'
+import { registerMenu } from './menu'
 import { connectionManager } from './db/manager'
 
 function createWindow(): void {
@@ -61,6 +62,12 @@ app.whenReady().then(() => {
   registerHistoryIpc()
   registerSettingsIpc()
   registerHapticsIpc()
+  registerMenu()
+
+  // Keep the native window background in sync with the renderer's theme.
+  ipcMain.on('app:setBackgroundColor', (event, color: string) => {
+    BrowserWindow.fromWebContents(event.sender)?.setBackgroundColor(color)
+  })
 
   createWindow()
 

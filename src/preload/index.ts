@@ -3,11 +3,13 @@ import { electronAPI } from '@electron-toolkit/preload'
 import type {
   AppSettings,
   ConnectionConfig,
+  CreateDumpParams,
   DataDockApi,
   DeleteRowParams,
   InsertRowParams,
   GetRowsOptions,
   IpcResult,
+  MenuContext,
   OpenFileOptions,
   QueryHistoryEntry,
   QueryResult,
@@ -56,6 +58,10 @@ const api: DataDockApi = {
       table: string,
       params: InsertRowParams
     ): Promise<UpdateRowResult> => invoke('db:insert', sessionId, table, params),
+    importSqlFiles: (sessionId: string, paths: string[], database?: string): Promise<number> =>
+      invoke('db:importSqlFiles', sessionId, paths, database),
+    createDump: (sessionId: string, params: CreateDumpParams): Promise<string | null> =>
+      invoke('db:createDump', sessionId, params),
     schemaGraph: (sessionId: string, database?: string): Promise<SchemaGraph> =>
       invoke('db:schemaGraph', sessionId, database),
     query: (sessionId: string, sql: string, database?: string): Promise<QueryResult> =>
@@ -75,7 +81,8 @@ const api: DataDockApi = {
   },
   dialog: {
     openFile: (options?: OpenFileOptions): Promise<string | null> =>
-      invoke('dialog:openFile', options)
+      invoke('dialog:openFile', options),
+    openFiles: (options?: OpenFileOptions): Promise<string[]> => invoke('dialog:openFiles', options)
   },
   history: {
     list: (connectionId: string): Promise<QueryHistoryEntry[]> =>
@@ -90,7 +97,23 @@ const api: DataDockApi = {
   },
   haptics: {
     tap: (): void => ipcRenderer.send('haptics:tap')
+  },
+  app: {
+    setBackgroundColor: (color: string): void => ipcRenderer.send('app:setBackgroundColor', color)
+  },
+  menu: {
+    setContext: (context: MenuContext): void => ipcRenderer.send('menu:setContext', context),
+    onDisconnect: (callback: () => void): (() => void) => subscribe('menu:disconnect', callback),
+    onImport: (callback: () => void): (() => void) => subscribe('menu:import', callback),
+    onDump: (callback: () => void): (() => void) => subscribe('menu:dump', callback)
   }
+}
+
+/** Subscribe to a fire-and-forget main→renderer channel; returns an unsubscribe fn. */
+function subscribe(channel: string, callback: () => void): () => void {
+  const handler = (): void => callback()
+  ipcRenderer.on(channel, handler)
+  return () => ipcRenderer.removeListener(channel, handler)
 }
 
 if (process.contextIsolated) {

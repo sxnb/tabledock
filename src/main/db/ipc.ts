@@ -1,9 +1,11 @@
 import { ipcMain, dialog, BrowserWindow } from 'electron'
+import { readFileSync, writeFileSync } from 'fs'
 import { connectionManager } from './manager'
 import {
   isRedisDriver,
   isRelationalDriver,
   type ConnectionConfig,
+  type CreateDumpParams,
   type DeleteRowParams,
   type InsertRowParams,
   type GetRowsOptions,
@@ -70,6 +72,33 @@ export function registerDbIpc(): void {
   handle('db:query', (sessionId: string, sql: string, database?: string) =>
     relational(sessionId).runQuery(sql, database)
   )
+  handle('db:importSqlFiles', async (sessionId: string, paths: string[], database?: string) => {
+    const driver = relational(sessionId)
+    for (const path of paths) {
+      await driver.runScript(readFileSync(path, 'utf-8'), database)
+    }
+    return paths.length
+  })
+  handle('db:createDump', async (sessionId: string, params: CreateDumpParams) => {
+    const driver = connectionManager.get(sessionId)
+    const redisDump = isRedisDriver(driver)
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')
+    const ext = redisDump ? 'txt' : 'sql'
+    const win = BrowserWindow.getFocusedWindow() ?? undefined
+    const save = win
+      ? await dialog.showSaveDialog(win, saveOptions(params.name, stamp, ext))
+      : await dialog.showSaveDialog(saveOptions(params.name, stamp, ext))
+    if (save.canceled || !save.filePath) return null
+    const content = redisDump
+      ? await driver.dumpKeyspace()
+      : isRelationalDriver(driver)
+        ? await driver.dumpDatabase(params.database, {
+            includeCreateDatabase: params.includeCreateDatabase
+          })
+        : ''
+    writeFileSync(save.filePath, content, 'utf-8')
+    return save.filePath
+  })
 
   // Redis
   handle('redis:select', (sessionId: string, index: number) => redis(sessionId).selectDb(index))
@@ -97,4 +126,33 @@ export function registerDbIpc(): void {
       : await dialog.showOpenDialog(dialogOptions)
     return result.canceled ? null : (result.filePaths[0] ?? null)
   })
+
+  // Multi-select file picker (SQL import).
+  handle('dialog:openFiles', async (options?: OpenFileOptions) => {
+    const dialogOptions: Electron.OpenDialogOptions = {
+      title: options?.title,
+      properties: ['openFile', 'multiSelections'],
+      filters: options?.filters ?? [{ name: 'All Files', extensions: ['*'] }]
+    }
+    const win = BrowserWindow.getFocusedWindow() ?? undefined
+    const result = win
+      ? await dialog.showOpenDialog(win, dialogOptions)
+      : await dialog.showOpenDialog(dialogOptions)
+    return result.canceled ? [] : result.filePaths
+  })
+}
+
+function saveOptions(
+  name: string | undefined,
+  stamp: string,
+  ext: string
+): Electron.SaveDialogOptions {
+  return {
+    title: 'Create database dump',
+    defaultPath: `${name || 'datadock'}-${stamp}.${ext}`,
+    filters: [
+      { name: ext.toUpperCase(), extensions: [ext] },
+      { name: 'All Files', extensions: ['*'] }
+    ]
+  }
 }

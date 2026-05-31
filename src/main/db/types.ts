@@ -10,7 +10,8 @@ import type {
   UpdateRowParams,
   UpdateRowResult,
   DeleteRowParams,
-  InsertRowParams
+  InsertRowParams,
+  DumpOptions
 } from '../../shared/types'
 
 export * from '../../shared/types'
@@ -29,6 +30,10 @@ export interface RelationalDriver {
   insertRow(table: string, params: InsertRowParams): Promise<UpdateRowResult>
   getSchemaGraph(database?: string): Promise<SchemaGraph>
   runQuery(sql: string, database?: string): Promise<QueryResult>
+  /** Execute a multi-statement SQL script (used by SQL import). */
+  runScript(sql: string, database?: string): Promise<void>
+  /** Produce a SQL dump (schema where available + data) for the database. */
+  dumpDatabase(database?: string, options?: DumpOptions): Promise<string>
 }
 
 /** Redis driver — non-relational, key/value oriented. */
@@ -40,6 +45,8 @@ export interface RedisDriverApi {
   listKeys(opts: { pattern: string; cursor: string; count: number }): Promise<RedisScanResult>
   getKey(key: string): Promise<RedisValue>
   runCommand(args: string[]): Promise<unknown>
+  /** Export the current database's keyspace as Redis commands. */
+  dumpKeyspace(): Promise<string>
 }
 
 export type AnyDriver = RelationalDriver | RedisDriverApi

@@ -1,6 +1,7 @@
 import mysql from 'mysql2/promise'
 import { buildTls } from '../ssl'
 import { buildFilter } from '../filter'
+import { buildInserts } from '../sqlformat'
 import type {
   ColumnMeta,
   ConnectionConfig,
@@ -16,7 +17,8 @@ import type {
   SchemaTable,
   TableMeta,
   UpdateRowParams,
-  UpdateRowResult
+  UpdateRowResult,
+  DumpOptions
 } from '../types'
 
 const SYSTEM_DATABASES = new Set(['information_schema', 'mysql', 'performance_schema', 'sys'])
@@ -180,6 +182,54 @@ export class MySqlDriver implements RelationalDriver {
       cols.map((c) => values[c])
     )
     return { affectedRows: result.affectedRows }
+  }
+
+  async runScript(sql: string, database?: string): Promise<void> {
+    // A dedicated connection with multi-statement support (the pool disables it).
+    const tls = buildTls(this.config)
+    const conn = await mysql.createConnection({
+      host: this.config.host || '127.0.0.1',
+      port: this.config.port || 3306,
+      user: this.config.user || 'root',
+      password: this.config.password || undefined,
+      database: database || this.config.database || undefined,
+      multipleStatements: true,
+      ...(tls ? { ssl: tls } : {})
+    })
+    try {
+      await conn.query(sql)
+    } finally {
+      await conn.end()
+    }
+  }
+
+  async dumpDatabase(database?: string, options?: DumpOptions): Promise<string> {
+    const target = database || this.config.database
+    if (!target) throw new Error('No database selected')
+    const tables = await this.listTables(target)
+    const parts: string[] = [`-- DataDock dump of \`${target}\` — ${new Date().toISOString()}\n`]
+    if (options?.includeCreateDatabase) {
+      parts.push(`CREATE DATABASE IF NOT EXISTS ${quoteIdent(target)};`)
+      parts.push(`USE ${quoteIdent(target)};\n`)
+    }
+    for (const t of tables) {
+      const qualified = `${quoteIdent(target)}.${quoteIdent(t)}`
+      const [createRows] = await this.db.query<mysql.RowDataPacket[]>(
+        `SHOW CREATE TABLE ${qualified}`
+      )
+      const ddl = String(createRows[0]?.['Create Table'] ?? '')
+      parts.push(`DROP TABLE IF EXISTS ${quoteIdent(t)};`)
+      if (ddl) parts.push(`${ddl};`)
+      const [rows, fields] = await this.db.query<mysql.RowDataPacket[]>(
+        `SELECT * FROM ${qualified}`
+      )
+      const columns = fields.map((f) => f.name)
+      const data = rows.map((r) => columns.map((c) => (r as Record<string, unknown>)[c]))
+      const inserts = buildInserts(quoteIdent(t), columns, data, quoteIdent)
+      if (inserts) parts.push(inserts)
+      parts.push('')
+    }
+    return parts.join('\n')
   }
 
   async getSchemaGraph(database?: string): Promise<SchemaGraph> {
