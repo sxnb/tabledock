@@ -1,5 +1,15 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
-import { X, Check, AlertTriangle, ChevronUp, ChevronDown, Pencil, Copy, Trash2 } from 'lucide-react'
+import {
+  X,
+  Check,
+  AlertTriangle,
+  ChevronUp,
+  ChevronDown,
+  Pencil,
+  Copy,
+  Trash2,
+  ArrowUpRight
+} from 'lucide-react'
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import type { ColumnMeta, DriverKind, SortSpec } from '@shared/types'
 import { formatCell } from '@renderer/lib/format'
@@ -38,6 +48,10 @@ interface DataTableProps {
   sort?: SortSpec | null
   /** When provided, headers become clickable to cycle the sort on that column. */
   onSort?: (column: string) => void
+  /** Columns that are foreign keys → their referenced table/column. */
+  foreignKeys?: Record<string, { targetTable: string; targetColumn: string }>
+  /** Invoked when a foreign-key cell's jump affordance is clicked. */
+  onForeignKey?: (targetTable: string, targetColumn: string, value: unknown) => void
 }
 
 interface EditState {
@@ -84,7 +98,9 @@ export function DataTable({
   emptyMessage,
   editing,
   sort,
-  onSort
+  onSort,
+  foreignKeys,
+  onForeignKey
 }: DataTableProps): React.JSX.Element {
   const [edit, setEdit] = useState<EditState | null>(null)
   const [saving, setSaving] = useState(false)
@@ -271,6 +287,8 @@ export function DataTable({
                       )
                     }
                     const { text, kind } = formatCell(cell)
+                    const fk = foreignKeys?.[column]
+                    const canJump = Boolean(fk && onForeignKey && cell != null)
                     return (
                       <td
                         key={ci}
@@ -280,12 +298,30 @@ export function DataTable({
                           contextColRef.current = ci
                         }}
                         className={cn(
-                          'truncate border-b border-r border-border px-3 py-1.5',
+                          'border-b border-r border-border px-3 py-1.5',
+                          canJump ? 'group/fk' : 'truncate',
                           editable && 'cursor-text',
                           kind === 'null' ? 'italic text-faint' : 'text-text'
                         )}
                       >
-                        {text}
+                        {canJump ? (
+                          <span className="flex items-center gap-1">
+                            <span className="min-w-0 truncate">{text}</span>
+                            <button
+                              type="button"
+                              title={`Go to ${fk!.targetTable}`}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                onForeignKey!(fk!.targetTable, fk!.targetColumn, cell)
+                              }}
+                              className="shrink-0 text-faint opacity-0 transition-opacity hover:text-accent group-hover/fk:opacity-100"
+                            >
+                              <ArrowUpRight size={13} />
+                            </button>
+                          </span>
+                        ) : (
+                          text
+                        )}
                       </td>
                     )
                   })}

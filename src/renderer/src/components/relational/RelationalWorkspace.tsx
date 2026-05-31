@@ -37,6 +37,7 @@ export function RelationalWorkspace({ session }: { session: Session }): React.JS
 
   const setSelectedDatabase = useWorkspace((s) => s.setSelectedDatabase)
   const openTableTab = useWorkspace((s) => s.openTableTab)
+  const openTableTabFiltered = useWorkspace((s) => s.openTableTabFiltered)
   const openQueryTab = useWorkspace((s) => s.openQueryTab)
   const openRelationsTab = useWorkspace((s) => s.openRelationsTab)
   const setActiveTab = useWorkspace((s) => s.setActiveTab)
@@ -258,6 +259,14 @@ export function RelationalWorkspace({ session }: { session: Session }): React.JS
               kind={session.config.kind}
               database={isSqlite ? undefined : session.selectedDatabase}
               readOnly={session.config.readOnly}
+              initialFilter={activeTab.initialFilter}
+              onNavigateForeignKey={(targetTable, targetColumn, value) =>
+                openTableTabFiltered(session.id, targetTable, {
+                  column: targetColumn,
+                  operator: 'eq',
+                  value: value == null ? '' : String(value)
+                })
+              }
             />
           ) : activeTab.kind === 'relations' ? (
             <RelationsView

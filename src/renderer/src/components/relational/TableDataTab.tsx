@@ -26,7 +26,13 @@ interface TableDataTabProps {
   kind: DriverKind
   database?: string
   readOnly?: boolean
+  /** Pre-applied filter (foreign-key navigation opens tabs with one). */
+  initialFilter?: FilterSpec
+  /** Open the referenced table filtered to a foreign-key value. */
+  onNavigateForeignKey?: (targetTable: string, targetColumn: string, value: unknown) => void
 }
+
+type ForeignKeyMap = Record<string, { targetTable: string; targetColumn: string }>
 
 const PAGE_SIZES = [50, 100, 500]
 
@@ -49,21 +55,26 @@ export function TableDataTab({
   table,
   kind,
   database,
-  readOnly
+  readOnly,
+  initialFilter,
+  onNavigateForeignKey
 }: TableDataTabProps): React.JSX.Element {
   const [view, setView] = useState<'data' | 'structure'>('data')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(100)
   const [sort, setSort] = useState<SortSpec | null>(null)
-  const [filter, setFilter] = useState<FilterSpec | null>(null)
+  const [filter, setFilter] = useState<FilterSpec | null>(initialFilter ?? null)
+  const [foreignKeys, setForeignKeys] = useState<ForeignKeyMap>({})
   // Row-action targets (indices into the current result page).
   const [editRowIndex, setEditRowIndex] = useState<number | null>(null)
   const [deleteRowIndex, setDeleteRowIndex] = useState<number | null>(null)
   const [addOpen, setAddOpen] = useState(false)
   // Draft filter inputs (applied only when Search is clicked).
-  const [filterColumn, setFilterColumn] = useState('')
-  const [filterOp, setFilterOp] = useState<FilterOperator>('eq')
-  const [filterValue, setFilterValue] = useState('')
+  const [filterColumn, setFilterColumn] = useState(initialFilter?.column ?? '')
+  const [filterOp, setFilterOp] = useState<FilterOperator>(initialFilter?.operator ?? 'eq')
+  const [filterValue, setFilterValue] = useState(
+    initialFilter?.value != null ? String(initialFilter.value) : ''
+  )
   const [result, setResult] = useState<RowsResult | null>(null)
   const [meta, setMeta] = useState<TableMeta | null>(null)
   const [loading, setLoading] = useState(false)
@@ -138,6 +149,29 @@ export function TableDataTab({
       })
       .catch(() => {
         if (!cancelled) setMeta(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [sessionId, table, database])
+
+  // Load foreign keys for this table so FK cells can link to referenced rows.
+  useEffect(() => {
+    let cancelled = false
+    window.api.db
+      .schemaGraph(sessionId, database)
+      .then((g) => {
+        if (cancelled) return
+        const map: ForeignKeyMap = {}
+        for (const rel of g.relations) {
+          if (rel.sourceTable === table) {
+            map[rel.sourceColumn] = { targetTable: rel.targetTable, targetColumn: rel.targetColumn }
+          }
+        }
+        setForeignKeys(map)
+      })
+      .catch(() => {
+        if (!cancelled) setForeignKeys({})
       })
     return () => {
       cancelled = true
@@ -392,6 +426,8 @@ export function TableDataTab({
             editing={editing}
             sort={sort}
             onSort={onSort}
+            foreignKeys={foreignKeys}
+            onForeignKey={onNavigateForeignKey}
           />
         )}
       </div>

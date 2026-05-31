@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { ConnectionConfig } from '@shared/types'
+import type { ConnectionConfig, FilterSpec } from '@shared/types'
 
 export type TabKind = 'table' | 'query' | 'relations' | 'redis-cmd'
 
@@ -9,6 +9,8 @@ export interface Tab {
   title: string
   /** Table name for table tabs. */
   table?: string
+  /** Initial filter for table tabs opened via foreign-key navigation. */
+  initialFilter?: FilterSpec
   /** Editor contents for query tabs (kept here so it survives tab switches). */
   sql?: string
 }
@@ -40,6 +42,8 @@ interface WorkspaceState {
 
   setSelectedDatabase: (id: string, database: string) => void
   openTableTab: (id: string, table: string) => void
+  /** Open a fresh table tab pre-filtered (used by foreign-key navigation). */
+  openTableTabFiltered: (id: string, table: string, filter: FilterSpec) => void
   openQueryTab: (id: string, initialSql?: string) => void
   openRelationsTab: (id: string) => void
   setActiveTab: (id: string, tabId: string) => void
@@ -137,6 +141,19 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
       const existing = s.tabs.find((t) => t.kind === 'table' && t.table === table)
       if (existing) return { ...s, activeTabId: existing.id }
       const tab: Tab = { id: uid(), kind: 'table', title: table, table }
+      return { ...s, tabs: [...s.tabs, tab], activeTabId: tab.id }
+    }),
+
+  openTableTabFiltered: (id, table, filter) =>
+    patchSession(set, id, (s) => {
+      // Always a fresh tab so it mounts with the filter applied; titled to show it.
+      const tab: Tab = {
+        id: uid(),
+        kind: 'table',
+        title: `${table} · ${filter.column}=${filter.value}`,
+        table,
+        initialFilter: filter
+      }
       return { ...s, tabs: [...s.tabs, tab], activeTabId: tab.id }
     }),
 
