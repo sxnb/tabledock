@@ -1,4 +1,4 @@
-import { Database, AlertTriangle, RotateCcw } from 'lucide-react'
+import { Database, AlertTriangle, RotateCcw, Command, Plus, Table2, Workflow } from 'lucide-react'
 import { useWorkspace } from '@renderer/store/workspace'
 import { KIND_META } from '@renderer/lib/kinds'
 import { Spinner } from './ui/Spinner'
@@ -8,24 +8,72 @@ import { RelationalWorkspace } from './relational/RelationalWorkspace'
 import { RedisWorkspace } from './redis/RedisWorkspace'
 import { MongoWorkspace } from './mongo/MongoWorkspace'
 
+const IS_MAC = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC')
+const MOD = IS_MAC ? '⌘' : 'Ctrl'
+
+function Kbd({ children }: { children: React.ReactNode }): React.JSX.Element {
+  return (
+    <kbd className="inline-flex min-w-[1.4rem] items-center justify-center rounded border border-border bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] font-medium text-text shadow-sm">
+      {children}
+    </kbd>
+  )
+}
+
+function WelcomeScreen(): React.JSX.Element {
+  return (
+    <div className="dd-glow relative flex h-full flex-col items-center justify-center gap-5 px-6 text-center">
+      <div className="grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-accent to-blue text-white shadow-[0_0_30px_rgba(139,123,255,0.45)]">
+        <Database size={26} />
+      </div>
+
+      <div className="flex flex-col items-center gap-2">
+        <h1 className="text-lg font-semibold text-text">Welcome to DataDock</h1>
+        <p className="max-w-md text-xs leading-relaxed text-muted">
+          A sleek desktop client for MySQL, MariaDB, PostgreSQL, SQL Server, MongoDB, Redis, and
+          SQLite. Pick a connection from the sidebar to open it, or create a new one to get started.
+        </p>
+      </div>
+
+      {/* Command palette highlight */}
+      <div className="flex items-center gap-3 rounded-xl border border-border bg-surface/60 px-4 py-3 text-left">
+        <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-accent-soft text-accent">
+          <Command size={16} />
+        </div>
+        <div className="flex flex-col gap-0.5">
+          <span className="flex items-center gap-1.5 text-xs font-medium text-text">
+            <Kbd>{MOD}</Kbd>
+            <Kbd>K</Kbd>
+            <span className="ml-1 text-muted">opens the command palette</span>
+          </span>
+          <span className="text-[11px] text-faint">
+            Jump to any connection, table, or action — no clicking required.
+          </span>
+        </div>
+      </div>
+
+      {/* Quick tips */}
+      <div className="flex max-w-md flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[11px] text-muted">
+        <span className="flex items-center gap-1.5">
+          <Plus size={13} className="text-faint" /> New connection in the sidebar
+        </span>
+        <span className="flex items-center gap-1.5">
+          <Table2 size={13} className="text-faint" /> Browse & edit rows inline
+        </span>
+        <span className="flex items-center gap-1.5">
+          <Workflow size={13} className="text-faint" /> Visualize relations as an ER diagram
+        </span>
+      </div>
+    </div>
+  )
+}
+
 export function Workspace(): React.JSX.Element {
   const activeSessionId = useWorkspace((s) => s.activeSessionId)
   const session = useWorkspace((s) => (activeSessionId ? s.sessions[activeSessionId] : null))
   const openConnection = useWorkspace((s) => s.openConnection)
 
   if (!session) {
-    return (
-      <div className="dd-glow relative flex h-full flex-col items-center justify-center gap-3 text-center">
-        <div className="grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-accent to-blue text-white shadow-[0_0_30px_rgba(139,123,255,0.45)]">
-          <Database size={26} />
-        </div>
-        <h1 className="text-lg font-semibold text-text">Welcome to DataDock</h1>
-        <p className="max-w-sm text-xs leading-relaxed text-muted">
-          Select a connection from the sidebar to open it, or create a new one to connect to MySQL,
-          PostgreSQL, Redis, or SQLite.
-        </p>
-      </div>
-    )
+    return <WelcomeScreen />
   }
 
   const meta = KIND_META[session.config.kind]
