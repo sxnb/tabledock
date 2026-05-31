@@ -46,7 +46,8 @@ interface EditState {
 }
 
 function quoteIdentFor(kind: DriverKind, name: string): string {
-  if (kind === 'mysql') return '`' + name.replace(/`/g, '``') + '`'
+  if (kind === 'mysql' || kind === 'mariadb') return '`' + name.replace(/`/g, '``') + '`'
+  if (kind === 'mssql') return '[' + name.replace(/]/g, ']]') + ']'
   return '"' + name.replace(/"/g, '""') + '"'
 }
 

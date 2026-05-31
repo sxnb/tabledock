@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import CodeMirror from '@uiw/react-codemirror'
-import { sql, MySQL, PostgreSQL, SQLite, StandardSQL, type SQLDialect } from '@codemirror/lang-sql'
+import {
+  sql,
+  MySQL,
+  MariaSQL,
+  PostgreSQL,
+  MSSQL,
+  SQLite,
+  StandardSQL,
+  type SQLDialect
+} from '@codemirror/lang-sql'
 import { oneDark } from '@codemirror/theme-one-dark'
 import { Play, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import type { DriverKind, QueryResult } from '@shared/types'
@@ -24,8 +33,12 @@ function dialectFor(kind: DriverKind): SQLDialect {
   switch (kind) {
     case 'mysql':
       return MySQL
+    case 'mariadb':
+      return MariaSQL
     case 'postgres':
       return PostgreSQL
+    case 'mssql':
+      return MSSQL
     case 'sqlite':
       return SQLite
     default:

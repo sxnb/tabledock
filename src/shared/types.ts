@@ -1,6 +1,6 @@
 // Types shared across the main process, preload, and renderer.
 
-export type DriverKind = 'mysql' | 'postgres' | 'redis' | 'sqlite'
+export type DriverKind = 'mysql' | 'mariadb' | 'postgres' | 'mssql' | 'redis' | 'sqlite'
 
 /** TLS/SSL settings; cert fields hold absolute paths to PEM files. */
 export interface SslConfig {

@@ -4,7 +4,7 @@
 
 # DataDock
 
-**A sleek, modern desktop database client for MySQL, PostgreSQL, Redis & SQLite.**
+**A sleek, modern desktop database client for MySQL, MariaDB, PostgreSQL, SQL Server, Redis & SQLite.**
 
 Browse, query, edit, and visualize your databases — all from one minimalist, dark-themed workspace.
 
@@ -19,7 +19,9 @@ Browse, query, edit, and visualize your databases — all from one minimalist, d
 <br/>
 
 ![MySQL](https://img.shields.io/badge/MySQL-4479A1?logo=mysql&logoColor=white)
+![MariaDB](https://img.shields.io/badge/MariaDB-003545?logo=mariadb&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)
+![SQL Server](https://img.shields.io/badge/SQL_Server-CC2927?logo=microsoftsqlserver&logoColor=white)
 ![Redis](https://img.shields.io/badge/Redis-FF4438?logo=redis&logoColor=white)
 ![SQLite](https://img.shields.io/badge/SQLite-003B57?logo=sqlite&logoColor=white)
 
@@ -31,7 +33,7 @@ Browse, query, edit, and visualize your databases — all from one minimalist, d
 
 ### 🔌 Connections
 
-- Save connections for **MySQL, PostgreSQL, Redis, and SQLite** and reopen them instantly on relaunch.
+- Save connections for **MySQL, MariaDB, PostgreSQL, SQL Server, Redis, and SQLite** and reopen them instantly on relaunch.
 - Passwords encrypted at rest via the OS keychain (Electron `safeStorage`) — never stored in plaintext.
 - Optional **SSL/TLS** with CA, client certificate, and key files.
 - Tag each connection with a **color** for at-a-glance identification (shown in the sidebar and as an accent bar atop the editor).
@@ -73,7 +75,7 @@ Browse, query, edit, and visualize your databases — all from one minimalist, d
 | **Shell**        | Electron, [electron-vite](https://electron-vite.org/), electron-builder    |
 | **UI**           | React 19, TypeScript, Tailwind CSS v4, Zustand, lucide-react, Radix UI     |
 | **Editor & viz** | CodeMirror 6 (`@codemirror/lang-sql`), React Flow (`@xyflow/react`), dagre |
-| **Drivers**      | `mysql2`, `pg`, `ioredis`, `better-sqlite3`                                |
+| **Drivers**      | `mysql2`, `pg`, `mssql`, `ioredis`, `better-sqlite3`                       |
 
 Database drivers run in the Electron **main process** and are exposed to the renderer over a typed IPC bridge — the renderer never touches the network or filesystem directly.
 

@@ -22,12 +22,28 @@ export const KIND_META: Record<DriverKind, KindMeta> = {
     defaultPort: 3306,
     relational: true
   },
+  mariadb: {
+    label: 'MariaDB',
+    badge: 'MAR',
+    icon: Database,
+    color: '#9a6a4f',
+    defaultPort: 3306,
+    relational: true
+  },
   postgres: {
     label: 'PostgreSQL',
     badge: 'PG',
     icon: Database,
     color: '#7c93ee',
     defaultPort: 5432,
+    relational: true
+  },
+  mssql: {
+    label: 'SQL Server',
+    badge: 'MS',
+    icon: Database,
+    color: '#cc4b4b',
+    defaultPort: 1433,
     relational: true
   },
   sqlite: {
@@ -47,4 +63,4 @@ export const KIND_META: Record<DriverKind, KindMeta> = {
   }
 }
 
-export const KIND_ORDER: DriverKind[] = ['mysql', 'postgres', 'redis', 'sqlite']
+export const KIND_ORDER: DriverKind[] = ['mysql', 'mariadb', 'postgres', 'mssql', 'redis', 'sqlite']

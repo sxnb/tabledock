@@ -3,15 +3,20 @@ import type { AnyDriver, ConnectionConfig, DriverKind } from './types'
 import { MySqlDriver } from './drivers/mysql'
 import { PostgresDriver } from './drivers/postgres'
 import { SqliteDriver } from './drivers/sqlite'
+import { SqlServerDriver } from './drivers/sqlserver'
 import { RedisDriver } from './drivers/redis'
 import { openTunnel, type Tunnel } from './tunnel'
 
 function createDriver(config: ConnectionConfig): AnyDriver {
   switch (config.kind) {
+    // MariaDB speaks the MySQL protocol, so the mysql2-based driver handles it.
     case 'mysql':
+    case 'mariadb':
       return new MySqlDriver(config)
     case 'postgres':
       return new PostgresDriver(config)
+    case 'mssql':
+      return new SqlServerDriver(config)
     case 'sqlite':
       return new SqliteDriver(config)
     case 'redis':
@@ -23,7 +28,9 @@ function createDriver(config: ConnectionConfig): AnyDriver {
 
 const DEFAULT_PORTS: Record<DriverKind, number> = {
   mysql: 3306,
+  mariadb: 3306,
   postgres: 5432,
+  mssql: 1433,
   redis: 6379,
   sqlite: 0
 }
