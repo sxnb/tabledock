@@ -138,6 +138,16 @@ export interface IndexStructure {
   unique: boolean
 }
 
+/** Specification for a new column added via schema editing. */
+export interface NewColumnSpec {
+  name: string
+  /** Raw SQL type, e.g. 'varchar(255)', 'integer'. */
+  type: string
+  nullable: boolean
+  /** Raw default expression, or null/empty for none. */
+  default?: string | null
+}
+
 /** Detailed structure of a table: columns, indexes, and CREATE DDL. */
 export interface TableStructure {
   columns: ColumnStructure[]
@@ -301,6 +311,15 @@ export interface DataDockApi {
     rows(sessionId: string, table: string, opts: GetRowsOptions): Promise<RowsResult>
     tableMeta(sessionId: string, table: string, database?: string): Promise<TableMeta>
     tableStructure(sessionId: string, table: string, database?: string): Promise<TableStructure>
+    addColumn(
+      sessionId: string,
+      table: string,
+      column: NewColumnSpec,
+      database?: string
+    ): Promise<void>
+    dropColumn(sessionId: string, table: string, column: string, database?: string): Promise<void>
+    renameTable(sessionId: string, table: string, newName: string, database?: string): Promise<void>
+    dropTable(sessionId: string, table: string, database?: string): Promise<void>
     update(sessionId: string, table: string, params: UpdateRowParams): Promise<UpdateRowResult>
     deleteRow(sessionId: string, table: string, params: DeleteRowParams): Promise<UpdateRowResult>
     insertRow(sessionId: string, table: string, params: InsertRowParams): Promise<UpdateRowResult>

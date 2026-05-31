@@ -2,6 +2,7 @@ import Database from 'better-sqlite3'
 import { basename } from 'path'
 import { buildFilter } from '../filter'
 import { buildInserts } from '../sqlformat'
+import { columnDdl } from '../ddl'
 import type {
   ColumnMeta,
   ConnectionConfig,
@@ -15,6 +16,7 @@ import type {
   SchemaGraph,
   SchemaRelation,
   SchemaTable,
+  NewColumnSpec,
   TableMeta,
   TableStructure,
   UpdateRowParams,
@@ -145,6 +147,22 @@ export class SqliteDriver implements RelationalDriver {
       .get(table) as { sql: string } | undefined
 
     return { columns, indexes, createSql: ddl?.sql ?? null }
+  }
+
+  async addColumn(table: string, column: NewColumnSpec): Promise<void> {
+    this.handle.exec(`ALTER TABLE ${quoteIdent(table)} ADD COLUMN ${columnDdl(column, quoteIdent)}`)
+  }
+
+  async dropColumn(table: string, column: string): Promise<void> {
+    this.handle.exec(`ALTER TABLE ${quoteIdent(table)} DROP COLUMN ${quoteIdent(column)}`)
+  }
+
+  async renameTable(table: string, newName: string): Promise<void> {
+    this.handle.exec(`ALTER TABLE ${quoteIdent(table)} RENAME TO ${quoteIdent(newName)}`)
+  }
+
+  async dropTable(table: string): Promise<void> {
+    this.handle.exec(`DROP TABLE ${quoteIdent(table)}`)
   }
 
   async updateRow(table: string, params: UpdateRowParams): Promise<UpdateRowResult> {

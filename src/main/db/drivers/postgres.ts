@@ -2,6 +2,7 @@ import pg from 'pg'
 import { buildTls } from '../ssl'
 import { buildFilter } from '../filter'
 import { buildInserts } from '../sqlformat'
+import { columnDdl } from '../ddl'
 import type {
   ColumnMeta,
   ConnectionConfig,
@@ -15,6 +16,7 @@ import type {
   SchemaGraph,
   SchemaRelation,
   SchemaTable,
+  NewColumnSpec,
   TableMeta,
   TableStructure,
   UpdateRowParams,
@@ -263,6 +265,32 @@ export class PostgresDriver implements RelationalDriver {
       map.set(row.typname, list)
     }
     return map
+  }
+
+  async addColumn(table: string, column: NewColumnSpec, database?: string): Promise<void> {
+    const pool = await this.poolFor(database || this.currentDatabase)
+    await pool.query(
+      `ALTER TABLE ${quoteIdent('public')}.${quoteIdent(table)} ADD COLUMN ${columnDdl(column, quoteIdent)}`
+    )
+  }
+
+  async dropColumn(table: string, column: string, database?: string): Promise<void> {
+    const pool = await this.poolFor(database || this.currentDatabase)
+    await pool.query(
+      `ALTER TABLE ${quoteIdent('public')}.${quoteIdent(table)} DROP COLUMN ${quoteIdent(column)}`
+    )
+  }
+
+  async renameTable(table: string, newName: string, database?: string): Promise<void> {
+    const pool = await this.poolFor(database || this.currentDatabase)
+    await pool.query(
+      `ALTER TABLE ${quoteIdent('public')}.${quoteIdent(table)} RENAME TO ${quoteIdent(newName)}`
+    )
+  }
+
+  async dropTable(table: string, database?: string): Promise<void> {
+    const pool = await this.poolFor(database || this.currentDatabase)
+    await pool.query(`DROP TABLE ${quoteIdent('public')}.${quoteIdent(table)}`)
   }
 
   async updateRow(table: string, params: UpdateRowParams): Promise<UpdateRowResult> {

@@ -75,6 +75,8 @@ export function TableDataTab({
   const [sort, setSort] = useState<SortSpec | null>(null)
   const [filter, setFilter] = useState<FilterSpec | null>(initialFilter ?? null)
   const [foreignKeys, setForeignKeys] = useState<ForeignKeyMap>({})
+  // Bumped after a schema change so column metadata and FKs re-fetch.
+  const [schemaVersion, setSchemaVersion] = useState(0)
   // Row-action targets (indices into the current result page).
   const [editRowIndex, setEditRowIndex] = useState<number | null>(null)
   const [deleteRowIndex, setDeleteRowIndex] = useState<number | null>(null)
@@ -164,7 +166,7 @@ export function TableDataTab({
     return () => {
       cancelled = true
     }
-  }, [sessionId, table, database])
+  }, [sessionId, table, database, schemaVersion])
 
   // Load foreign keys for this table so FK cells can link to referenced rows.
   useEffect(() => {
@@ -187,7 +189,7 @@ export function TableDataTab({
     return () => {
       cancelled = true
     }
-  }, [sessionId, table, database])
+  }, [sessionId, table, database, schemaVersion])
 
   const pkForRow = useCallback(
     (rowIndex: number): Record<string, unknown> => {
@@ -444,7 +446,16 @@ export function TableDataTab({
 
       <div className="min-h-0 flex-1">
         {view === 'structure' ? (
-          <TableStructure sessionId={sessionId} table={table} database={database} />
+          <TableStructure
+            sessionId={sessionId}
+            table={table}
+            database={database}
+            readOnly={readOnly}
+            onChanged={() => {
+              void load()
+              setSchemaVersion((v) => v + 1)
+            }}
+          />
         ) : error ? (
           <div className="flex h-full items-center justify-center gap-2 px-6 text-center text-xs text-danger">
             <AlertTriangle size={16} /> {error}

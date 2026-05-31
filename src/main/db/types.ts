@@ -7,6 +7,7 @@ import type {
   MongoFindOptions,
   MongoFindResult,
   RowsResult,
+  NewColumnSpec,
   SchemaGraph,
   TableMeta,
   TableStructure,
@@ -29,6 +30,10 @@ export interface RelationalDriver {
   getRows(table: string, opts: GetRowsOptions): Promise<RowsResult>
   getTableMeta(table: string, database?: string): Promise<TableMeta>
   getTableStructure(table: string, database?: string): Promise<TableStructure>
+  addColumn(table: string, column: NewColumnSpec, database?: string): Promise<void>
+  dropColumn(table: string, column: string, database?: string): Promise<void>
+  renameTable(table: string, newName: string, database?: string): Promise<void>
+  dropTable(table: string, database?: string): Promise<void>
   updateRow(table: string, params: UpdateRowParams): Promise<UpdateRowResult>
   deleteRow(table: string, params: DeleteRowParams): Promise<UpdateRowResult>
   insertRow(table: string, params: InsertRowParams): Promise<UpdateRowResult>

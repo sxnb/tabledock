@@ -7,17 +7,23 @@ import {
   RefreshCw,
   Workflow,
   History,
-  Bookmark
+  Bookmark,
+  Pencil,
+  Trash2
 } from 'lucide-react'
+import * as ContextMenu from '@radix-ui/react-context-menu'
 import type { Session } from '@renderer/store/workspace'
 import { useWorkspace } from '@renderer/store/workspace'
 import { Select } from '@renderer/components/ui/Select'
 import { Tabs, type TabItem } from '@renderer/components/ui/Tabs'
 import { IconButton } from '@renderer/components/ui/IconButton'
 import { Button } from '@renderer/components/ui/Button'
+import { Input } from '@renderer/components/ui/Input'
+import { Modal } from '@renderer/components/ui/Modal'
 import { Spinner } from '@renderer/components/ui/Spinner'
 import { EmptyState } from '@renderer/components/ui/EmptyState'
 import { ConfirmDialog } from '@renderer/components/ui/ConfirmDialog'
+import { toast } from '@renderer/store/toasts'
 import { cn } from '@renderer/lib/cn'
 import { TableDataTab } from './TableDataTab'
 import { QueryTab } from './QueryTab'
@@ -58,6 +64,13 @@ export function RelationalWorkspace({ session }: { session: Session }): React.JS
   const [pendingDatabase, setPendingDatabase] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState('')
+  // Schema-editing targets for the table list context menu.
+  const [renameTarget, setRenameTarget] = useState<string | null>(null)
+  const [renameValue, setRenameValue] = useState('')
+  const [dropTableTarget, setDropTableTarget] = useState<string | null>(null)
+
+  const readOnly = Boolean(session.config.readOnly)
+  const activeDatabase = isSqlite ? undefined : session.selectedDatabase
 
   // Load the database list once the backend session is live, then pick a default.
   useEffect(() => {
@@ -123,6 +136,46 @@ export function RelationalWorkspace({ session }: { session: Session }): React.JS
     setPendingDatabase(null)
   }
 
+  // Close any open tabs that reference a table (after rename/drop).
+  const closeTabsForTable = (tbl: string): void => {
+    session.tabs
+      .filter((t) => t.kind === 'table' && t.table === tbl)
+      .forEach((t) => closeTab(session.id, t.id))
+  }
+
+  const confirmRename = async (): Promise<void> => {
+    const next = renameValue.trim()
+    if (!next || !renameTarget || next === renameTarget) {
+      setRenameTarget(null)
+      return
+    }
+    try {
+      await window.api.db.renameTable(sessionId, renameTarget, next, activeDatabase)
+      toast.success(`Renamed ${renameTarget} → ${next}`)
+      closeTabsForTable(renameTarget)
+      await loadTables()
+      openTableTab(session.id, next)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
+    } finally {
+      setRenameTarget(null)
+    }
+  }
+
+  const confirmDropTable = async (): Promise<void> => {
+    if (!dropTableTarget) return
+    try {
+      await window.api.db.dropTable(sessionId, dropTableTarget, activeDatabase)
+      toast.success(`Dropped table ${dropTableTarget}`)
+      closeTabsForTable(dropTableTarget)
+      await loadTables()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
+    } finally {
+      setDropTableTarget(null)
+    }
+  }
+
   const activeTab = session.tabs.find((t) => t.id === session.activeTabId) ?? null
   const tabItems: TabItem[] = session.tabs.map((t) => ({
     id: t.id,
@@ -175,20 +228,51 @@ export function RelationalWorkspace({ session }: { session: Session }): React.JS
             <ul className="flex flex-col gap-0.5">
               {filtered.map((table) => {
                 const isActive = activeTab?.kind === 'table' && activeTab.table === table
+                const tableButton = (
+                  <button
+                    onClick={() => openTableTab(session.id, table)}
+                    className={cn(
+                      'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] transition-colors',
+                      isActive
+                        ? 'bg-accent-soft text-text'
+                        : 'text-muted hover:bg-surface-2 hover:text-text'
+                    )}
+                  >
+                    <Table2 size={13} className="shrink-0 text-faint" />
+                    <span className="truncate font-mono">{table}</span>
+                  </button>
+                )
                 return (
                   <li key={table}>
-                    <button
-                      onClick={() => openTableTab(session.id, table)}
-                      className={cn(
-                        'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] transition-colors',
-                        isActive
-                          ? 'bg-accent-soft text-text'
-                          : 'text-muted hover:bg-surface-2 hover:text-text'
-                      )}
-                    >
-                      <Table2 size={13} className="shrink-0 text-faint" />
-                      <span className="truncate font-mono">{table}</span>
-                    </button>
+                    {readOnly ? (
+                      tableButton
+                    ) : (
+                      <ContextMenu.Root>
+                        <ContextMenu.Trigger asChild>{tableButton}</ContextMenu.Trigger>
+                        <ContextMenu.Portal>
+                          <ContextMenu.Content className="z-50 min-w-44 overflow-hidden rounded-md border border-border bg-surface-2 p-1 text-xs text-text shadow-xl">
+                            <ContextMenu.Item
+                              onSelect={() => {
+                                setRenameValue(table)
+                                setRenameTarget(table)
+                              }}
+                              className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 outline-none data-[highlighted]:bg-accent-soft data-[highlighted]:text-text"
+                            >
+                              <Pencil size={13} className="text-faint" />
+                              Rename table…
+                            </ContextMenu.Item>
+                            <ContextMenu.Separator className="my-1 h-px bg-border" />
+                            <ContextMenu.Item
+                              onSelect={() => setDropTableTarget(table)}
+                              className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-danger outline-none data-[highlighted]:bg-danger/15"
+                            >
+                              <Trash2 size={13} />
+                              Drop table
+                            </ContextMenu.Item>
+                          </ContextMenu.Content>
+                        </ContextMenu.Portal>
+                      </ContextMenu.Root>
+                    )}
                   </li>
                 )
               })}
@@ -317,6 +401,47 @@ export function RelationalWorkspace({ session }: { session: Session }): React.JS
         confirmLabel="Change & close tabs"
         onConfirm={confirmDatabaseChange}
         onCancel={() => setPendingDatabase(null)}
+      />
+
+      <Modal
+        open={renameTarget !== null}
+        title={`Rename ${renameTarget ?? ''}`}
+        onClose={() => setRenameTarget(null)}
+        footer={
+          <>
+            <Button variant="secondary" size="sm" onClick={() => setRenameTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => void confirmRename()}
+              disabled={!renameValue.trim() || renameValue.trim() === renameTarget}
+            >
+              Rename
+            </Button>
+          </>
+        }
+      >
+        <Input
+          label="New name"
+          autoFocus
+          value={renameValue}
+          onChange={(e) => setRenameValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') void confirmRename()
+          }}
+        />
+      </Modal>
+
+      <ConfirmDialog
+        open={dropTableTarget !== null}
+        title="Drop table?"
+        description={`This permanently deletes the table "${dropTableTarget}" and all its data.`}
+        confirmLabel="Drop table"
+        variant="danger"
+        onConfirm={() => void confirmDropTable()}
+        onCancel={() => setDropTableTarget(null)}
       />
     </div>
   )

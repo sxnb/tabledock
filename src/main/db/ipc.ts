@@ -13,6 +13,7 @@ import {
   type IpcResult,
   type MongoDriverApi,
   type MongoFindOptions,
+  type NewColumnSpec,
   type OpenFileOptions,
   type RedisDriverApi,
   type RelationalDriver,
@@ -73,6 +74,22 @@ export function registerDbIpc(): void {
   handle('db:tableStructure', (sessionId: string, table: string, database?: string) =>
     relational(sessionId).getTableStructure(table, database)
   )
+  handle('db:addColumn', (sessionId: string, table: string, column: NewColumnSpec, db?: string) => {
+    assertWritable(sessionId)
+    return relational(sessionId).addColumn(table, column, db)
+  })
+  handle('db:dropColumn', (sessionId: string, table: string, column: string, db?: string) => {
+    assertWritable(sessionId)
+    return relational(sessionId).dropColumn(table, column, db)
+  })
+  handle('db:renameTable', (sessionId: string, table: string, newName: string, db?: string) => {
+    assertWritable(sessionId)
+    return relational(sessionId).renameTable(table, newName, db)
+  })
+  handle('db:dropTable', (sessionId: string, table: string, db?: string) => {
+    assertWritable(sessionId)
+    return relational(sessionId).dropTable(table, db)
+  })
   handle('db:update', (sessionId: string, table: string, params: UpdateRowParams) => {
     assertWritable(sessionId)
     return relational(sessionId).updateRow(table, params)

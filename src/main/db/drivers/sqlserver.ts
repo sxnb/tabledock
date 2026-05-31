@@ -2,6 +2,7 @@ import sql from 'mssql'
 import { buildTls } from '../ssl'
 import { buildFilter } from '../filter'
 import { buildInserts } from '../sqlformat'
+import { columnDdl } from '../ddl'
 import type {
   ColumnMeta,
   ConnectionConfig,
@@ -16,6 +17,7 @@ import type {
   SchemaGraph,
   SchemaRelation,
   SchemaTable,
+  NewColumnSpec,
   TableMeta,
   TableStructure,
   UpdateRowParams,
@@ -250,6 +252,40 @@ export class SqlServerDriver implements RelationalDriver {
     const indexes = [...byName.entries()].map(([name, v]) => ({ name, ...v }))
 
     return { columns, indexes, createSql: buildMssqlCreate(table, columns, primaryKeys) }
+  }
+
+  async addColumn(table: string, column: NewColumnSpec, database?: string): Promise<void> {
+    const pool = await this.poolFor(database || this.currentDatabase)
+    // T-SQL: ADD takes no COLUMN keyword.
+    await pool
+      .request()
+      .query(
+        `ALTER TABLE ${quoteIdent('dbo')}.${quoteIdent(table)} ADD ${columnDdl(column, quoteIdent)}`
+      )
+  }
+
+  async dropColumn(table: string, column: string, database?: string): Promise<void> {
+    const pool = await this.poolFor(database || this.currentDatabase)
+    await pool
+      .request()
+      .query(
+        `ALTER TABLE ${quoteIdent('dbo')}.${quoteIdent(table)} DROP COLUMN ${quoteIdent(column)}`
+      )
+  }
+
+  async renameTable(table: string, newName: string, database?: string): Promise<void> {
+    const pool = await this.poolFor(database || this.currentDatabase)
+    // sp_rename's new-name argument is unqualified.
+    await pool
+      .request()
+      .input('o', `dbo.${table}`)
+      .input('n', newName)
+      .query('EXEC sp_rename @o, @n')
+  }
+
+  async dropTable(table: string, database?: string): Promise<void> {
+    const pool = await this.poolFor(database || this.currentDatabase)
+    await pool.request().query(`DROP TABLE ${quoteIdent('dbo')}.${quoteIdent(table)}`)
   }
 
   async updateRow(table: string, params: UpdateRowParams): Promise<UpdateRowResult> {

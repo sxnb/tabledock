@@ -1,6 +1,7 @@
 import mysql from 'mysql2/promise'
 import { buildTls } from '../ssl'
 import { buildFilter } from '../filter'
+import { columnDdl } from '../ddl'
 import { buildInserts } from '../sqlformat'
 import type {
   ColumnMeta,
@@ -15,6 +16,7 @@ import type {
   SchemaGraph,
   SchemaRelation,
   SchemaTable,
+  NewColumnSpec,
   TableMeta,
   TableStructure,
   UpdateRowParams,
@@ -27,6 +29,11 @@ const SYSTEM_DATABASES = new Set(['information_schema', 'mysql', 'performance_sc
 /** Wrap an identifier in backticks, escaping embedded backticks. */
 function quoteIdent(name: string): string {
   return '`' + name.replace(/`/g, '``') + '`'
+}
+
+/** Qualify a table with its database when one is known. */
+function qualify(database: string | undefined, table: string): string {
+  return database ? `${quoteIdent(database)}.${quoteIdent(table)}` : quoteIdent(table)
 }
 
 export class MySqlDriver implements RelationalDriver {
@@ -187,6 +194,25 @@ export class MySqlDriver implements RelationalDriver {
     }
 
     return { columns, indexes, createSql }
+  }
+
+  async addColumn(table: string, column: NewColumnSpec, database?: string): Promise<void> {
+    const qualified = qualify(database || this.config.database, table)
+    await this.db.query(`ALTER TABLE ${qualified} ADD COLUMN ${columnDdl(column, quoteIdent)}`)
+  }
+
+  async dropColumn(table: string, column: string, database?: string): Promise<void> {
+    const qualified = qualify(database || this.config.database, table)
+    await this.db.query(`ALTER TABLE ${qualified} DROP COLUMN ${quoteIdent(column)}`)
+  }
+
+  async renameTable(table: string, newName: string, database?: string): Promise<void> {
+    const db = database || this.config.database
+    await this.db.query(`RENAME TABLE ${qualify(db, table)} TO ${qualify(db, newName)}`)
+  }
+
+  async dropTable(table: string, database?: string): Promise<void> {
+    await this.db.query(`DROP TABLE ${qualify(database || this.config.database, table)}`)
   }
 
   async updateRow(table: string, params: UpdateRowParams): Promise<UpdateRowResult> {

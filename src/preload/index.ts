@@ -12,6 +12,7 @@ import type {
   MenuContext,
   MongoFindOptions,
   MongoFindResult,
+  NewColumnSpec,
   OpenFileOptions,
   SaveTextOptions,
   QueryHistoryEntry,
@@ -56,6 +57,26 @@ const api: DataDockApi = {
       table: string,
       database?: string
     ): Promise<TableStructure> => invoke('db:tableStructure', sessionId, table, database),
+    addColumn: (
+      sessionId: string,
+      table: string,
+      column: NewColumnSpec,
+      database?: string
+    ): Promise<void> => invoke('db:addColumn', sessionId, table, column, database),
+    dropColumn: (
+      sessionId: string,
+      table: string,
+      column: string,
+      database?: string
+    ): Promise<void> => invoke('db:dropColumn', sessionId, table, column, database),
+    renameTable: (
+      sessionId: string,
+      table: string,
+      newName: string,
+      database?: string
+    ): Promise<void> => invoke('db:renameTable', sessionId, table, newName, database),
+    dropTable: (sessionId: string, table: string, database?: string): Promise<void> =>
+      invoke('db:dropTable', sessionId, table, database),
     update: (sessionId: string, table: string, params: UpdateRowParams): Promise<UpdateRowResult> =>
       invoke('db:update', sessionId, table, params),
     deleteRow: (
