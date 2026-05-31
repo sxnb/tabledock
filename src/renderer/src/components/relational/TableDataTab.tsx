@@ -278,6 +278,16 @@ export function TableDataTab({
               columns={result?.columns ?? []}
               rows={result?.rows ?? []}
               filename={table}
+              fetchRows={async () => {
+                const all = await window.api.db.rows(sessionId, table, {
+                  page: 1,
+                  pageSize: Math.max(result?.total ?? 0, 1),
+                  database,
+                  sort: sort ?? undefined,
+                  filter: filter ?? undefined
+                })
+                return all.rows
+              }}
             />
             <Select
               className="h-7 w-auto pr-7 text-xs"
