@@ -8,6 +8,7 @@ import { Workspace } from './components/Workspace'
 import { ConnectionForm } from './components/ConnectionForm'
 import { ImportSqlModal } from './components/ImportSqlModal'
 import { DumpModal } from './components/DumpModal'
+import { CommandPalette } from './components/CommandPalette'
 import { TooltipProvider } from './components/ui/Tooltip'
 
 function App(): React.JSX.Element {
@@ -21,6 +22,7 @@ function App(): React.JSX.Element {
   const [editing, setEditing] = useState<ConnectionConfig | null>(null)
   const [importOpen, setImportOpen] = useState(false)
   const [dumpOpen, setDumpOpen] = useState(false)
+  const [paletteOpen, setPaletteOpen] = useState(false)
 
   useEffect(() => {
     void load()
@@ -75,6 +77,29 @@ function App(): React.JSX.Element {
   useEffect(() => window.api.menu.onImport(() => setImportOpen(true)), [])
   useEffect(() => window.api.menu.onDump(() => setDumpOpen(true)), [])
 
+  // Global keyboard shortcuts: ⌘/Ctrl+K opens the command palette; ⌘/Ctrl+T
+  // opens a new query tab in the active relational connection.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (!(e.metaKey || e.ctrlKey)) return
+      const key = e.key.toLowerCase()
+      if (key === 'k') {
+        e.preventDefault()
+        setPaletteOpen((o) => !o)
+      } else if (key === 't') {
+        const { activeSessionId: id, sessions, openQueryTab } = useWorkspace.getState()
+        const s = id ? sessions[id] : null
+        const relational = ['mysql', 'mariadb', 'postgres', 'mssql', 'sqlite']
+        if (s && s.status === 'connected' && relational.includes(s.config.kind)) {
+          e.preventDefault()
+          openQueryTab(s.id)
+        }
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
   const runImport = async (paths: string[]): Promise<void> => {
     if (activeBackendId) await window.api.db.importSqlFiles(activeBackendId, paths, activeDb)
   }
@@ -106,6 +131,11 @@ function App(): React.JSX.Element {
           <Workspace />
         </main>
         <ConnectionForm open={formOpen} editing={editing} onClose={() => setFormOpen(false)} />
+        <CommandPalette
+          open={paletteOpen}
+          onClose={() => setPaletteOpen(false)}
+          onNewConnection={openNew}
+        />
         {importOpen && (
           <ImportSqlModal open onClose={() => setImportOpen(false)} onImport={runImport} />
         )}
