@@ -11,7 +11,8 @@ import {
   type SQLDialect
 } from '@codemirror/lang-sql'
 import { oneDark } from '@codemirror/theme-one-dark'
-import { Play, AlertTriangle, CheckCircle2, Bookmark } from 'lucide-react'
+import { format } from 'sql-formatter'
+import { Play, AlertTriangle, CheckCircle2, Bookmark, WandSparkles, ListTree } from 'lucide-react'
 import type { DriverKind, QueryResult } from '@shared/types'
 import { useSettings } from '@renderer/store/settings'
 import { DataTable } from '@renderer/components/ui/DataTable'
@@ -22,6 +23,8 @@ import { Modal } from '@renderer/components/ui/Modal'
 import { Input } from '@renderer/components/ui/Input'
 import { ConfirmDialog } from '@renderer/components/ui/ConfirmDialog'
 import { destructiveWarning } from '@renderer/lib/sqlSafety'
+import { formatterLanguage, explainPrefix } from '@renderer/lib/sqlDialect'
+import { toast } from '@renderer/store/toasts'
 
 interface QueryTabProps {
   sessionId: string
@@ -66,6 +69,7 @@ export function QueryTab({
   const [result, setResult] = useState<QueryResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [running, setRunning] = useState(false)
+  const [elapsedMs, setElapsedMs] = useState<number | null>(null)
   const [saveOpen, setSaveOpen] = useState(false)
   const [saveName, setSaveName] = useState('')
   // Destructive-statement warning awaiting confirmation before running.
@@ -91,20 +95,23 @@ export function QueryTab({
 
   const extensions = useMemo(() => [sql({ dialect: dialectFor(kind), schema })], [kind, schema])
 
-  const execute = async (): Promise<void> => {
+  const execute = async (sqlToRun: string, addToHistory: boolean): Promise<void> => {
     setRunning(true)
     setError(null)
+    setElapsedMs(null)
     let ok = true
+    const start = performance.now()
     try {
-      const res = await window.api.db.query(sessionId, sqlText, database)
+      const res = await window.api.db.query(sessionId, sqlToRun, database)
       setResult(res)
     } catch (err) {
       ok = false
       setError(err instanceof Error ? err.message : String(err))
       setResult(null)
     } finally {
+      setElapsedMs(performance.now() - start)
       setRunning(false)
-      void window.api.history.add(connectionId, { sql: sqlText, ok })
+      if (addToHistory) void window.api.history.add(connectionId, { sql: sqlToRun, ok })
     }
   }
 
@@ -116,7 +123,22 @@ export function QueryTab({
       setPendingWarning(warning)
       return
     }
-    void execute()
+    void execute(sqlText, true)
+  }
+
+  const prefix = explainPrefix(kind)
+  const explain = (): void => {
+    if (!sqlText.trim() || running || !prefix) return
+    void execute(prefix + sqlText.trim(), false)
+  }
+
+  const formatSql = (): void => {
+    if (!sqlText.trim()) return
+    try {
+      onSqlChange(format(sqlText, { language: formatterLanguage(kind) }))
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
+    }
   }
 
   const onKeyDown = (e: React.KeyboardEvent): void => {
@@ -146,13 +168,28 @@ export function QueryTab({
           {running ? <Spinner size={13} className="text-white" /> : <Play size={13} />}
           Run
         </Button>
+        {prefix && (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={explain}
+            disabled={running || !sqlText.trim()}
+          >
+            <ListTree size={13} />
+            Explain
+          </Button>
+        )}
+        <Button variant="secondary" size="sm" onClick={formatSql} disabled={!sqlText.trim()}>
+          <WandSparkles size={13} />
+          Format
+        </Button>
         <Button variant="secondary" size="sm" onClick={openSave} disabled={!sqlText.trim()}>
           <Bookmark size={13} />
           Save
         </Button>
         <span className="text-[11px] text-faint">⌘/Ctrl + Enter</span>
         <div className="flex-1" />
-        <ResultStatus result={result} error={error} />
+        <ResultStatus result={result} error={error} elapsedMs={elapsedMs} />
         {result && result.columns.length > 0 && (
           <ExportButton columns={result.columns} rows={result.rows} filename="query-result" />
         )}
@@ -221,7 +258,7 @@ export function QueryTab({
         variant="danger"
         onConfirm={() => {
           setPendingWarning(null)
-          void execute()
+          void execute(sqlText, true)
         }}
         onCancel={() => setPendingWarning(null)}
       />
@@ -229,21 +266,31 @@ export function QueryTab({
   )
 }
 
+function formatElapsed(ms: number): string {
+  return ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(2)} s`
+}
+
 function ResultStatus({
   result,
-  error
+  error,
+  elapsedMs
 }: {
   result: QueryResult | null
   error: string | null
+  elapsedMs: number | null
 }): React.JSX.Element | null {
-  if (error) return null
-  if (!result) return null
+  if (error || !result) return null
+  const time = elapsedMs != null && <span className="text-faint">· {formatElapsed(elapsedMs)}</span>
   if (result.columns.length > 0) {
-    return <span className="text-[11px] text-muted">{result.rowCount} row(s)</span>
+    return (
+      <span className="flex items-center gap-1.5 text-[11px] text-muted">
+        {result.rowCount} row(s) {time}
+      </span>
+    )
   }
   return (
     <span className="flex items-center gap-1.5 text-[11px] text-ok">
-      <CheckCircle2 size={13} /> {result.affectedRows ?? 0} affected
+      <CheckCircle2 size={13} /> {result.affectedRows ?? 0} affected {time}
     </span>
   )
 }
