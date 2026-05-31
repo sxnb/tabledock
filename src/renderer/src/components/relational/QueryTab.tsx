@@ -17,6 +17,7 @@ import { useSettings } from '@renderer/store/settings'
 import { DataTable } from '@renderer/components/ui/DataTable'
 import { Button } from '@renderer/components/ui/Button'
 import { Spinner } from '@renderer/components/ui/Spinner'
+import { ExportButton } from '@renderer/components/ui/ExportButton'
 
 interface QueryTabProps {
   sessionId: string
@@ -114,6 +115,9 @@ export function QueryTab({
         <span className="text-[11px] text-faint">⌘/Ctrl + Enter</span>
         <div className="flex-1" />
         <ResultStatus result={result} error={error} />
+        {result && result.columns.length > 0 && (
+          <ExportButton columns={result.columns} rows={result.rows} filename="query-result" />
+        )}
       </div>
 
       <div className="min-h-0 shrink-0 border-b border-border" onKeyDown={onKeyDown}>

@@ -15,6 +15,7 @@ import { Select } from '@renderer/components/ui/Select'
 import { Input } from '@renderer/components/ui/Input'
 import { Button } from '@renderer/components/ui/Button'
 import { ConfirmDialog } from '@renderer/components/ui/ConfirmDialog'
+import { ExportButton } from '@renderer/components/ui/ExportButton'
 import { RowEditModal } from './RowEditModal'
 
 interface TableDataTabProps {
@@ -250,6 +251,7 @@ export function TableDataTab({
             Add row
           </Button>
         )}
+        <ExportButton columns={result?.columns ?? []} rows={result?.rows ?? []} filename={table} />
         <Select
           className="h-7 w-auto pr-7 text-xs"
           value={pageSize}

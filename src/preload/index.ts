@@ -13,6 +13,7 @@ import type {
   MongoFindOptions,
   MongoFindResult,
   OpenFileOptions,
+  SaveTextOptions,
   QueryHistoryEntry,
   QueryResult,
   RedisScanResult,
@@ -110,7 +111,10 @@ const api: DataDockApi = {
   dialog: {
     openFile: (options?: OpenFileOptions): Promise<string | null> =>
       invoke('dialog:openFile', options),
-    openFiles: (options?: OpenFileOptions): Promise<string[]> => invoke('dialog:openFiles', options)
+    openFiles: (options?: OpenFileOptions): Promise<string[]> =>
+      invoke('dialog:openFiles', options),
+    saveText: (content: string, options: SaveTextOptions): Promise<string | null> =>
+      invoke('dialog:saveText', content, options)
   },
   history: {
     list: (connectionId: string): Promise<QueryHistoryEntry[]> =>

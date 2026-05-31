@@ -173,6 +173,27 @@ export function registerDbIpc(): void {
     return result.canceled ? null : (result.filePaths[0] ?? null)
   })
 
+  // Save arbitrary text to a user-chosen file (result export).
+  handle(
+    'dialog:saveText',
+    async (
+      content: string,
+      options: { defaultName: string; filters?: { name: string; extensions: string[] }[] }
+    ) => {
+      const dialogOptions: Electron.SaveDialogOptions = {
+        defaultPath: options.defaultName,
+        filters: options.filters ?? [{ name: 'All Files', extensions: ['*'] }]
+      }
+      const win = BrowserWindow.getFocusedWindow() ?? undefined
+      const save = win
+        ? await dialog.showSaveDialog(win, dialogOptions)
+        : await dialog.showSaveDialog(dialogOptions)
+      if (save.canceled || !save.filePath) return null
+      writeFileSync(save.filePath, content, 'utf-8')
+      return save.filePath
+    }
+  )
+
   // Multi-select file picker (SQL import).
   handle('dialog:openFiles', async (options?: OpenFileOptions) => {
     const dialogOptions: Electron.OpenDialogOptions = {

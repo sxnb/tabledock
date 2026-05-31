@@ -304,6 +304,8 @@ export interface DataDockApi {
   dialog: {
     openFile(options?: OpenFileOptions): Promise<string | null>
     openFiles(options?: OpenFileOptions): Promise<string[]>
+    /** Prompt for a save location and write text; returns the path, or null if canceled. */
+    saveText(content: string, options: SaveTextOptions): Promise<string | null>
   }
   history: {
     list(connectionId: string): Promise<QueryHistoryEntry[]>
@@ -347,4 +349,9 @@ export interface OpenFileOptions {
   filters?: { name: string; extensions: string[] }[]
   /** Allow choosing/creating a not-yet-existing file (used for SQLite). */
   allowCreate?: boolean
+}
+
+export interface SaveTextOptions {
+  defaultName: string
+  filters?: { name: string; extensions: string[] }[]
 }
