@@ -125,6 +125,25 @@ export class RedisDriver implements RedisDriverApi {
     return this.handle.dbsize()
   }
 
+  async deleteKey(key: string): Promise<void> {
+    await this.handle.del(key)
+  }
+
+  async renameKey(key: string, newKey: string): Promise<void> {
+    await this.handle.rename(key, newKey)
+  }
+
+  /** Set a TTL in seconds, or pass null to persist the key (remove expiry). */
+  async setKeyTtl(key: string, seconds: number | null): Promise<void> {
+    if (seconds == null) {
+      await this.handle.persist(key)
+    } else if (seconds > 0) {
+      await this.handle.expire(key, seconds)
+    } else {
+      throw new Error('TTL must be a positive number of seconds')
+    }
+  }
+
   async runCommand(args: string[]): Promise<unknown> {
     if (args.length === 0) throw new Error('Empty command')
     const [cmd, ...rest] = args

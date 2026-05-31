@@ -373,6 +373,10 @@ export interface DataDockApi {
     command(sessionId: string, args: string[]): Promise<unknown>
     /** Number of keys in the current database (DBSIZE). */
     dbSize(sessionId: string): Promise<number>
+    delete(sessionId: string, key: string): Promise<void>
+    rename(sessionId: string, key: string, newKey: string): Promise<void>
+    /** Set a TTL in seconds, or null to persist (remove expiry). */
+    setTtl(sessionId: string, key: string, seconds: number | null): Promise<void>
   }
   dialog: {
     openFile(options?: OpenFileOptions): Promise<string | null>

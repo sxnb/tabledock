@@ -165,6 +165,18 @@ export function registerDbIpc(): void {
   handle('redis:get', (sessionId: string, key: string) => redis(sessionId).getKey(key))
   handle('redis:command', (sessionId: string, args: string[]) => redis(sessionId).runCommand(args))
   handle('redis:dbSize', (sessionId: string) => redis(sessionId).dbSize())
+  handle('redis:delete', (sessionId: string, key: string) => {
+    assertWritable(sessionId)
+    return redis(sessionId).deleteKey(key)
+  })
+  handle('redis:rename', (sessionId: string, key: string, newKey: string) => {
+    assertWritable(sessionId)
+    return redis(sessionId).renameKey(key, newKey)
+  })
+  handle('redis:setTtl', (sessionId: string, key: string, seconds: number | null) => {
+    assertWritable(sessionId)
+    return redis(sessionId).setKeyTtl(key, seconds)
+  })
 
   // MongoDB
   handle('mongo:databases', (sessionId: string) => mongo(sessionId).listDatabases())

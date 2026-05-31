@@ -1,11 +1,26 @@
 import { useEffect, useState } from 'react'
-import { Search, RefreshCw, KeyRound, Terminal, Database } from 'lucide-react'
+import {
+  Search,
+  RefreshCw,
+  KeyRound,
+  Terminal,
+  Database,
+  Pencil,
+  Trash2,
+  Clock
+} from 'lucide-react'
+import * as ContextMenu from '@radix-ui/react-context-menu'
 import type { RedisKeyInfo, RedisValue } from '@shared/types'
 import type { Session } from '@renderer/store/workspace'
 import { IconButton } from '@renderer/components/ui/IconButton'
 import { Spinner } from '@renderer/components/ui/Spinner'
 import { Select } from '@renderer/components/ui/Select'
+import { Input } from '@renderer/components/ui/Input'
+import { Modal } from '@renderer/components/ui/Modal'
+import { Button } from '@renderer/components/ui/Button'
 import { EmptyState } from '@renderer/components/ui/EmptyState'
+import { ConfirmDialog } from '@renderer/components/ui/ConfirmDialog'
+import { toast } from '@renderer/store/toasts'
 import { cn } from '@renderer/lib/cn'
 import { RedisCommandTab } from './RedisCommandTab'
 
@@ -30,6 +45,14 @@ export function RedisWorkspace({ session }: { session: Session }): React.JSX.Ele
   const [loadingValue, setLoadingValue] = useState(false)
   const [dbSize, setDbSize] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Key write-action targets.
+  const [renameTarget, setRenameTarget] = useState<string | null>(null)
+  const [renameValue, setRenameValue] = useState('')
+  const [ttlTarget, setTtlTarget] = useState<string | null>(null)
+  const [ttlValue, setTtlValue] = useState('')
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
+
+  const readOnly = Boolean(session.config.readOnly)
 
   const loadDbSize = async (): Promise<void> => {
     try {
@@ -88,6 +111,55 @@ export function RedisWorkspace({ session }: { session: Session }): React.JSX.Ele
     void loadDbSize()
   }
 
+  const confirmDelete = async (): Promise<void> => {
+    if (!deleteTarget) return
+    try {
+      await window.api.redis.delete(sessionId, deleteTarget)
+      toast.success(`Deleted ${deleteTarget}`)
+      setKeys((prev) => prev.filter((k) => k.key !== deleteTarget))
+      if (selectedKey === deleteTarget) {
+        setSelectedKey(null)
+        setValue(null)
+      }
+      void loadDbSize()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
+    } finally {
+      setDeleteTarget(null)
+    }
+  }
+
+  const confirmRename = async (): Promise<void> => {
+    const next = renameValue.trim()
+    if (!next || !renameTarget || next === renameTarget) {
+      setRenameTarget(null)
+      return
+    }
+    try {
+      await window.api.redis.rename(sessionId, renameTarget, next)
+      toast.success(`Renamed ${renameTarget} → ${next}`)
+      setKeys((prev) => prev.map((k) => (k.key === renameTarget ? { ...k, key: next } : k)))
+      if (selectedKey === renameTarget) void selectKey(next)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
+    } finally {
+      setRenameTarget(null)
+    }
+  }
+
+  const applyTtl = async (seconds: number | null): Promise<void> => {
+    if (!ttlTarget) return
+    try {
+      await window.api.redis.setTtl(sessionId, ttlTarget, seconds)
+      toast.success(seconds == null ? `Cleared TTL on ${ttlTarget}` : `Set TTL on ${ttlTarget}`)
+      if (selectedKey === ttlTarget) void selectKey(ttlTarget)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
+    } finally {
+      setTtlTarget(null)
+    }
+  }
+
   return (
     <div className="flex h-full min-h-0">
       {/* Left: db selector + key browser */}
@@ -135,8 +207,8 @@ export function RedisWorkspace({ session }: { session: Session }): React.JSX.Ele
 
         <div className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-2">
           <ul className="flex flex-col gap-0.5">
-            {keys.map((k) => (
-              <li key={k.key}>
+            {keys.map((k) => {
+              const keyButton = (
                 <button
                   onClick={() => void selectKey(k.key)}
                   className={cn(
@@ -157,8 +229,49 @@ export function RedisWorkspace({ session }: { session: Session }): React.JSX.Ele
                   </span>
                   <span className="truncate font-mono">{k.key}</span>
                 </button>
-              </li>
-            ))}
+              )
+              return (
+                <li key={k.key}>
+                  {readOnly ? (
+                    keyButton
+                  ) : (
+                    <ContextMenu.Root>
+                      <ContextMenu.Trigger asChild>{keyButton}</ContextMenu.Trigger>
+                      <ContextMenu.Portal>
+                        <ContextMenu.Content className="z-50 min-w-44 overflow-hidden rounded-md border border-border bg-surface-2 p-1 text-xs text-text shadow-xl">
+                          <KeyMenuItem
+                            icon={<Pencil size={13} />}
+                            onSelect={() => {
+                              setRenameValue(k.key)
+                              setRenameTarget(k.key)
+                            }}
+                          >
+                            Rename…
+                          </KeyMenuItem>
+                          <KeyMenuItem
+                            icon={<Clock size={13} />}
+                            onSelect={() => {
+                              setTtlValue('')
+                              setTtlTarget(k.key)
+                            }}
+                          >
+                            Set TTL…
+                          </KeyMenuItem>
+                          <ContextMenu.Separator className="my-1 h-px bg-border" />
+                          <KeyMenuItem
+                            icon={<Trash2 size={13} />}
+                            danger
+                            onSelect={() => setDeleteTarget(k.key)}
+                          >
+                            Delete
+                          </KeyMenuItem>
+                        </ContextMenu.Content>
+                      </ContextMenu.Portal>
+                    </ContextMenu.Root>
+                  )}
+                </li>
+              )
+            })}
           </ul>
           {keys.length === 0 && !loadingKeys && (
             <p className="px-2 py-3 text-xs text-faint">No keys found</p>
@@ -215,7 +328,112 @@ export function RedisWorkspace({ session }: { session: Session }): React.JSX.Ele
           )}
         </div>
       </div>
+
+      <Modal
+        open={renameTarget !== null}
+        title={`Rename ${renameTarget ?? ''}`}
+        onClose={() => setRenameTarget(null)}
+        footer={
+          <>
+            <Button variant="secondary" size="sm" onClick={() => setRenameTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => void confirmRename()}
+              disabled={!renameValue.trim() || renameValue.trim() === renameTarget}
+            >
+              Rename
+            </Button>
+          </>
+        }
+      >
+        <Input
+          label="New key name"
+          autoFocus
+          value={renameValue}
+          onChange={(e) => setRenameValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') void confirmRename()
+          }}
+        />
+      </Modal>
+
+      <Modal
+        open={ttlTarget !== null}
+        title={`Set TTL · ${ttlTarget ?? ''}`}
+        onClose={() => setTtlTarget(null)}
+        footer={
+          <>
+            <Button variant="ghost" size="sm" onClick={() => void applyTtl(null)}>
+              Clear TTL (persist)
+            </Button>
+            <div className="flex-1" />
+            <Button variant="secondary" size="sm" onClick={() => setTtlTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => void applyTtl(Number(ttlValue))}
+              disabled={!ttlValue || Number(ttlValue) <= 0}
+            >
+              Set
+            </Button>
+          </>
+        }
+      >
+        <Input
+          label="Expire in (seconds)"
+          type="number"
+          autoFocus
+          value={ttlValue}
+          onChange={(e) => setTtlValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && Number(ttlValue) > 0) void applyTtl(Number(ttlValue))
+          }}
+          placeholder="e.g. 3600"
+        />
+      </Modal>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Delete key?"
+        description={`This permanently deletes "${deleteTarget}".`}
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={() => void confirmDelete()}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
+  )
+}
+
+function KeyMenuItem({
+  children,
+  icon,
+  onSelect,
+  danger
+}: {
+  children: React.ReactNode
+  icon: React.ReactNode
+  onSelect: () => void
+  danger?: boolean
+}): React.JSX.Element {
+  return (
+    <ContextMenu.Item
+      onSelect={onSelect}
+      className={cn(
+        'flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 outline-none',
+        danger
+          ? 'text-danger data-[highlighted]:bg-danger/15'
+          : 'data-[highlighted]:bg-accent-soft data-[highlighted]:text-text'
+      )}
+    >
+      <span className={danger ? '' : 'text-faint'}>{icon}</span>
+      {children}
+    </ContextMenu.Item>
   )
 }
 

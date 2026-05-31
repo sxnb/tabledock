@@ -55,6 +55,9 @@ export interface RedisDriverApi {
   getKey(key: string): Promise<RedisValue>
   runCommand(args: string[]): Promise<unknown>
   dbSize(): Promise<number>
+  deleteKey(key: string): Promise<void>
+  renameKey(key: string, newKey: string): Promise<void>
+  setKeyTtl(key: string, seconds: number | null): Promise<void>
   /** Export the current database's keyspace as Redis commands. */
   dumpKeyspace(): Promise<string>
 }

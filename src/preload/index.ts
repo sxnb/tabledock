@@ -140,7 +140,13 @@ const api: DataDockApi = {
       invoke('redis:get', sessionId, key),
     command: (sessionId: string, args: string[]): Promise<unknown> =>
       invoke('redis:command', sessionId, args),
-    dbSize: (sessionId: string): Promise<number> => invoke('redis:dbSize', sessionId)
+    dbSize: (sessionId: string): Promise<number> => invoke('redis:dbSize', sessionId),
+    delete: (sessionId: string, key: string): Promise<void> =>
+      invoke('redis:delete', sessionId, key),
+    rename: (sessionId: string, key: string, newKey: string): Promise<void> =>
+      invoke('redis:rename', sessionId, key, newKey),
+    setTtl: (sessionId: string, key: string, seconds: number | null): Promise<void> =>
+      invoke('redis:setTtl', sessionId, key, seconds)
   },
   dialog: {
     openFile: (options?: OpenFileOptions): Promise<string | null> =>
