@@ -177,6 +177,11 @@ export function registerDbIpc(): void {
     assertWritable(sessionId)
     return redis(sessionId).setKeyTtl(key, seconds)
   })
+  // Structured value edits (SET/HSET/LSET/SADD/ZADD/…) built by the UI.
+  handle('redis:write', (sessionId: string, args: string[]) => {
+    assertWritable(sessionId)
+    return redis(sessionId).runCommand(args)
+  })
 
   // MongoDB
   handle('mongo:databases', (sessionId: string) => mongo(sessionId).listDatabases())

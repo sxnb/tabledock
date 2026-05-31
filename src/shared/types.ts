@@ -377,6 +377,8 @@ export interface DataDockApi {
     rename(sessionId: string, key: string, newKey: string): Promise<void>
     /** Set a TTL in seconds, or null to persist (remove expiry). */
     setTtl(sessionId: string, key: string, seconds: number | null): Promise<void>
+    /** Run a structured, write-guarded value edit (SET/HSET/LSET/SADD/ZADD/…). */
+    write(sessionId: string, args: string[]): Promise<unknown>
   }
   dialog: {
     openFile(options?: OpenFileOptions): Promise<string | null>

@@ -7,7 +7,8 @@ import {
   Database,
   Pencil,
   Trash2,
-  Clock
+  Clock,
+  Plus
 } from 'lucide-react'
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import type { RedisKeyInfo, RedisValue } from '@shared/types'
@@ -23,6 +24,7 @@ import { ConfirmDialog } from '@renderer/components/ui/ConfirmDialog'
 import { toast } from '@renderer/store/toasts'
 import { cn } from '@renderer/lib/cn'
 import { RedisCommandTab } from './RedisCommandTab'
+import { RedisValuePanel } from './RedisValuePanel'
 
 const TYPE_COLORS: Record<string, string> = {
   string: '#5b8cff',
@@ -51,8 +53,18 @@ export function RedisWorkspace({ session }: { session: Session }): React.JSX.Ele
   const [ttlTarget, setTtlTarget] = useState<string | null>(null)
   const [ttlValue, setTtlValue] = useState('')
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
+  const [addKeyOpen, setAddKeyOpen] = useState(false)
 
   const readOnly = Boolean(session.config.readOnly)
+
+  const createKey = async (name: string, args: string[]): Promise<void> => {
+    await window.api.redis.write(sessionId, args)
+    toast.success(`Created ${name}`)
+    setAddKeyOpen(false)
+    await scan(true)
+    void loadDbSize()
+    void selectKey(name)
+  }
 
   const loadDbSize = async (): Promise<void> => {
     try {
@@ -83,7 +95,6 @@ export function RedisWorkspace({ session }: { session: Session }): React.JSX.Ele
   // Initial scan once connected. `scan` is intentionally excluded from deps so
   // it only runs on (re)connect, not on every keystroke in the pattern field.
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial key scan sets loading/keys intentionally
     void scan(true)
     void loadDbSize()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -203,6 +214,11 @@ export function RedisWorkspace({ session }: { session: Session }): React.JSX.Ele
           <IconButton label="Scan keys" type="submit">
             {loadingKeys ? <Spinner size={12} /> : <RefreshCw size={12} />}
           </IconButton>
+          {!readOnly && (
+            <IconButton label="Create key" type="button" onClick={() => setAddKeyOpen(true)}>
+              <Plus size={13} />
+            </IconButton>
+          )}
         </form>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-2">
@@ -314,9 +330,11 @@ export function RedisWorkspace({ session }: { session: Session }): React.JSX.Ele
               <Spinner size={20} />
             </div>
           ) : selectedKey && value ? (
-            <ValueView
+            <RedisValuePanel
+              sessionId={sessionId}
               keyName={selectedKey}
               value={value}
+              readOnly={readOnly}
               onRefresh={() => void selectKey(selectedKey)}
             />
           ) : (
@@ -406,7 +424,109 @@ export function RedisWorkspace({ session }: { session: Session }): React.JSX.Ele
         onConfirm={() => void confirmDelete()}
         onCancel={() => setDeleteTarget(null)}
       />
+
+      {addKeyOpen && <AddKeyModal onClose={() => setAddKeyOpen(false)} onCreate={createKey} />}
     </div>
+  )
+}
+
+type RedisType = 'string' | 'list' | 'set' | 'hash' | 'zset'
+
+function AddKeyModal({
+  onClose,
+  onCreate
+}: {
+  onClose: () => void
+  onCreate: (name: string, args: string[]) => Promise<void>
+}): React.JSX.Element {
+  const [name, setName] = useState('')
+  const [type, setType] = useState<RedisType>('string')
+  const [field, setField] = useState('')
+  const [score, setScore] = useState('0')
+  const [value, setValue] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const valid =
+    name.trim() !== '' &&
+    (type !== 'hash' || field.trim() !== '') &&
+    (type !== 'zset' || score.trim() !== '')
+
+  const build = (): string[] => {
+    const k = name.trim()
+    switch (type) {
+      case 'string':
+        return ['SET', k, value]
+      case 'list':
+        return ['RPUSH', k, value]
+      case 'set':
+        return ['SADD', k, value]
+      case 'hash':
+        return ['HSET', k, field, value]
+      case 'zset':
+        return ['ZADD', k, score, value]
+    }
+  }
+
+  const submit = async (): Promise<void> => {
+    if (!valid) return
+    setSaving(true)
+    try {
+      await onCreate(name.trim(), build())
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal
+      open
+      title="Create key"
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="secondary" size="sm" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button variant="primary" size="sm" onClick={submit} disabled={!valid || saving}>
+            Create
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-3">
+        <Input label="Key name" autoFocus value={name} onChange={(e) => setName(e.target.value)} />
+        <label className="flex flex-col gap-1.5">
+          <span className="text-xs font-medium text-muted">Type</span>
+          <Select value={type} onChange={(e) => setType(e.target.value as RedisType)}>
+            <option value="string">string</option>
+            <option value="list">list</option>
+            <option value="set">set</option>
+            <option value="hash">hash</option>
+            <option value="zset">zset</option>
+          </Select>
+        </label>
+        {type === 'hash' && (
+          <Input label="Field" value={field} onChange={(e) => setField(e.target.value)} />
+        )}
+        {type === 'zset' && (
+          <Input
+            label="Score"
+            type="number"
+            value={score}
+            onChange={(e) => setScore(e.target.value)}
+          />
+        )}
+        <Input
+          label={
+            type === 'string' ? 'Value' : type === 'zset' || type === 'set' ? 'Member' : 'Value'
+          }
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+        />
+      </div>
+    </Modal>
   )
 }
 
@@ -460,110 +580,4 @@ function ViewToggle({
       {children}
     </button>
   )
-}
-
-function formatTtl(seconds: number): string {
-  if (seconds < 0) return 'no expiry'
-  if (seconds < 60) return `${seconds}s`
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`
-  return `${Math.floor(seconds / 86400)}d`
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
-
-function ValueView({
-  keyName,
-  value,
-  onRefresh
-}: {
-  keyName: string
-  value: RedisValue
-  onRefresh: () => void
-}): React.JSX.Element {
-  const lengthLabel =
-    value.length != null
-      ? value.type === 'string'
-        ? `${value.length} chars`
-        : `${value.length} items`
-      : null
-
-  return (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center gap-2 border-b border-border px-4 py-2 text-xs">
-        <span className="truncate font-mono text-text">{keyName}</span>
-        <span className="shrink-0 rounded bg-surface-2 px-1.5 py-0.5 uppercase text-faint">
-          {value.type}
-        </span>
-        <div className="flex-1" />
-        <div className="flex shrink-0 items-center gap-2 text-[11px] text-faint">
-          {lengthLabel && <Meta>{lengthLabel}</Meta>}
-          {value.ttl != null && <Meta>TTL {formatTtl(value.ttl)}</Meta>}
-          {value.memoryBytes != null && <Meta>{formatBytes(value.memoryBytes)}</Meta>}
-          {value.encoding && <Meta>{value.encoding}</Meta>}
-        </div>
-        <IconButton label="Refresh value" onClick={onRefresh} className="shrink-0">
-          <RefreshCw size={13} />
-        </IconButton>
-      </div>
-      <div className="min-h-0 flex-1 overflow-auto p-4 font-mono text-xs">
-        <RedisValueBody value={value} />
-      </div>
-    </div>
-  )
-}
-
-function Meta({ children }: { children: React.ReactNode }): React.JSX.Element {
-  return <span className="rounded bg-surface-2 px-1.5 py-0.5">{children}</span>
-}
-
-function RedisValueBody({ value }: { value: RedisValue }): React.JSX.Element {
-  switch (value.type) {
-    case 'string':
-      return <pre className="whitespace-pre-wrap break-all text-text">{String(value.value)}</pre>
-    case 'list':
-    case 'set':
-      return (
-        <ol className="flex flex-col gap-1">
-          {(value.value as string[]).map((v, i) => (
-            <li key={i} className="flex gap-3">
-              <span className="w-10 shrink-0 text-right text-faint">{i}</span>
-              <span className="break-all text-text">{v}</span>
-            </li>
-          ))}
-        </ol>
-      )
-    case 'zset':
-      return (
-        <table className="w-full">
-          <tbody>
-            {(value.value as { member: string; score: string }[]).map((p, i) => (
-              <tr key={i}>
-                <td className="py-0.5 pr-4 text-faint">{p.score}</td>
-                <td className="break-all text-text">{p.member}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )
-    case 'hash':
-      return (
-        <table className="w-full">
-          <tbody>
-            {Object.entries(value.value as Record<string, string>).map(([k, v]) => (
-              <tr key={k}>
-                <td className="py-0.5 pr-4 align-top text-accent">{k}</td>
-                <td className="break-all text-text">{v}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )
-    default:
-      return <pre className="text-muted">{String(value.value)}</pre>
-  }
 }
