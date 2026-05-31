@@ -15,6 +15,7 @@ import type { ColumnMeta, DriverKind, SortSpec } from '@shared/types'
 import { formatCell } from '@renderer/lib/format'
 import { inputKind, toTypedValue } from '@renderer/lib/columnInput'
 import { cn } from '@renderer/lib/cn'
+import { toast } from '@renderer/store/toasts'
 import { Button } from './Button'
 import { Spinner } from './Spinner'
 
@@ -118,16 +119,22 @@ export function DataTable({
   // The column the context menu was opened on (for "copy cell value").
   const contextColRef = useRef(0)
 
-  const copy = (text: string): void => void navigator.clipboard.writeText(text)
+  const copy = (text: string, label: string): void => {
+    void navigator.clipboard.writeText(text)
+    toast.success(label)
+  }
   const copyRowCsv = (ri: number): void =>
-    copy(columns.map((_, i) => csvValue(rows[ri][i])).join(','))
+    copy(columns.map((_, i) => csvValue(rows[ri][i])).join(','), 'Row copied as CSV')
   const copyRowSql = (ri: number): void => {
     if (!editing) return
     const cols = columns.map((c) => quoteIdentFor(editing.kind, c)).join(', ')
     const vals = columns.map((_, i) => sqlValue(rows[ri][i])).join(', ')
-    copy(`INSERT INTO ${quoteIdentFor(editing.kind, editing.table)} (${cols}) VALUES (${vals});`)
+    copy(
+      `INSERT INTO ${quoteIdentFor(editing.kind, editing.table)} (${cols}) VALUES (${vals});`,
+      'Row copied as SQL'
+    )
   }
-  const copyCell = (ri: number, ci: number): void => copy(cellText(rows[ri][ci]))
+  const copyCell = (ri: number, ci: number): void => copy(cellText(rows[ri][ci]), 'Cell copied')
 
   // Per-column widths (px), keyed by name; unset columns use the default.
   const [widths, setWidths] = useState<Record<string, number>>({})

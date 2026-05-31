@@ -20,6 +20,8 @@ import { Spinner } from '@renderer/components/ui/Spinner'
 import { ExportButton } from '@renderer/components/ui/ExportButton'
 import { Modal } from '@renderer/components/ui/Modal'
 import { Input } from '@renderer/components/ui/Input'
+import { ConfirmDialog } from '@renderer/components/ui/ConfirmDialog'
+import { destructiveWarning } from '@renderer/lib/sqlSafety'
 
 interface QueryTabProps {
   sessionId: string
@@ -66,6 +68,8 @@ export function QueryTab({
   const [running, setRunning] = useState(false)
   const [saveOpen, setSaveOpen] = useState(false)
   const [saveName, setSaveName] = useState('')
+  // Destructive-statement warning awaiting confirmation before running.
+  const [pendingWarning, setPendingWarning] = useState<string | null>(null)
   // Schema for autocomplete: { tableName: [columnName, ...] }.
   const [schema, setSchema] = useState<Record<string, string[]>>({})
 
@@ -87,8 +91,7 @@ export function QueryTab({
 
   const extensions = useMemo(() => [sql({ dialect: dialectFor(kind), schema })], [kind, schema])
 
-  const run = async (): Promise<void> => {
-    if (!sqlText.trim() || running) return
+  const execute = async (): Promise<void> => {
     setRunning(true)
     setError(null)
     let ok = true
@@ -105,10 +108,21 @@ export function QueryTab({
     }
   }
 
+  // Guard destructive statements (UPDATE/DELETE without WHERE, TRUNCATE, DROP).
+  const run = (): void => {
+    if (!sqlText.trim() || running) return
+    const warning = destructiveWarning(sqlText)
+    if (warning) {
+      setPendingWarning(warning)
+      return
+    }
+    void execute()
+  }
+
   const onKeyDown = (e: React.KeyboardEvent): void => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault()
-      void run()
+      run()
     }
   }
 
@@ -198,6 +212,19 @@ export function QueryTab({
           placeholder="e.g. Active users last 7 days"
         />
       </Modal>
+
+      <ConfirmDialog
+        open={pendingWarning !== null}
+        title="Run destructive statement?"
+        description={pendingWarning ?? undefined}
+        confirmLabel="Run anyway"
+        variant="danger"
+        onConfirm={() => {
+          setPendingWarning(null)
+          void execute()
+        }}
+        onCancel={() => setPendingWarning(null)}
+      />
     </div>
   )
 }

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { Download } from 'lucide-react'
 import { toCsv, toJson } from '@renderer/lib/exporters'
+import { toast } from '@renderer/store/toasts'
 import { cn } from '@renderer/lib/cn'
 import { Button } from './Button'
 import { Spinner } from './Spinner'
@@ -33,13 +34,17 @@ export function ExportButton({
     try {
       const data = fetchRows ? await fetchRows() : rows
       const content = format === 'csv' ? toCsv(columns, data) : toJson(columns, data)
-      await window.api.dialog.saveText(content, {
+      const path = await window.api.dialog.saveText(content, {
         defaultName: `${filename}.${format}`,
         filters: [
           { name: format.toUpperCase(), extensions: [format] },
           { name: 'All Files', extensions: ['*'] }
         ]
       })
+      if (path)
+        toast.success(`Exported ${data.length} row${data.length === 1 ? '' : 's'} to ${path}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
     } finally {
       setBusy(false)
     }

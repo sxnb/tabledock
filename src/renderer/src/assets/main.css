@@ -105,6 +105,20 @@
   background: radial-gradient(600px circle at 50% 30%, rgba(139, 123, 255, 0.12), transparent 60%);
 }
 
+@keyframes dd-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.dd-toast-in {
+  animation: dd-toast-in 0.15s ease-out;
+}
+
 /* ── React Flow dark theming (relation diagram) ─────────────────────────── */
 /* Theme via xyflow's own CSS variables so they win regardless of the order in
    which React Flow's stylesheet is injected relative to this file. */

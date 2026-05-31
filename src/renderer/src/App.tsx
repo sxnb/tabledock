@@ -9,6 +9,7 @@ import { ConnectionForm } from './components/ConnectionForm'
 import { ImportSqlModal } from './components/ImportSqlModal'
 import { DumpModal } from './components/DumpModal'
 import { CommandPalette } from './components/CommandPalette'
+import { ToastViewport } from './components/ui/ToastViewport'
 import { TooltipProvider } from './components/ui/Tooltip'
 
 function App(): React.JSX.Element {
@@ -148,6 +149,7 @@ function App(): React.JSX.Element {
           />
         )}
       </div>
+      <ToastViewport />
     </TooltipProvider>
   )
 }

@@ -5,6 +5,7 @@ import { Button } from '@renderer/components/ui/Button'
 import { Select } from '@renderer/components/ui/Select'
 import { Spinner } from '@renderer/components/ui/Spinner'
 import { parseCsv, parseJsonRows, type ParsedTable } from '@renderer/lib/csv'
+import { toast } from '@renderer/store/toasts'
 
 interface ImportDataModalProps {
   open: boolean
@@ -83,8 +84,9 @@ export function ImportDataModal({
         })
         return obj
       })
-      await onImport(rows)
+      const count = await onImport(rows)
       close()
+      toast.success(`Imported ${count} row${count === 1 ? '' : 's'} into ${table}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
