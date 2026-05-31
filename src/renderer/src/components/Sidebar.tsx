@@ -79,6 +79,7 @@ export function Sidebar({ onNew, onEdit }: SidebarProps): React.JSX.Element {
               const session = sessions[config.id]
               const active = activeSessionId === config.id
               const Icon = meta.icon
+              const accent = config.color ?? meta.color
               return (
                 <li key={config.id}>
                   <div
@@ -99,11 +100,12 @@ export function Sidebar({ onNew, onEdit }: SidebarProps): React.JSX.Element {
                     <span
                       className="grid h-6 w-6 shrink-0 place-items-center rounded"
                       style={{
-                        color: config.color ?? meta.color,
-                        background: `${config.color ?? meta.color}1a`
+                        color: accent,
+                        background: `${accent}33`,
+                        boxShadow: `inset 0 0 0 1px ${accent}66`
                       }}
                     >
-                      <Icon size={13} />
+                      <Icon size={14} />
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
@@ -154,7 +156,7 @@ export function Sidebar({ onNew, onEdit }: SidebarProps): React.JSX.Element {
         </div>
 
         <div className="flex items-center gap-2 border-t border-border/70 bg-black/20 p-2">
-          <Button variant="secondary" className="flex-1" onClick={onNew}>
+          <Button variant="ghost" className="flex-1" onClick={onNew}>
             <Plus size={14} />
             New connection
           </Button>
