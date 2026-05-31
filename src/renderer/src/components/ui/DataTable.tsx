@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   X,
   Check,
@@ -8,7 +8,8 @@ import {
   Pencil,
   Copy,
   Trash2,
-  ArrowUpRight
+  ArrowUpRight,
+  Maximize2
 } from 'lucide-react'
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import type { ColumnMeta, DriverKind, SortSpec } from '@shared/types'
@@ -18,6 +19,7 @@ import { cn } from '@renderer/lib/cn'
 import { toast } from '@renderer/store/toasts'
 import { Button } from './Button'
 import { Spinner } from './Spinner'
+import { CellDetailModal } from './CellDetailModal'
 
 const ROW_NUM_W = 48
 const DEFAULT_COL_W = 180
@@ -106,6 +108,8 @@ export function DataTable({
   const [edit, setEdit] = useState<EditState | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Cell being inspected/edited in the detail modal.
+  const [detail, setDetail] = useState<{ row: number; col: number } | null>(null)
   const cellRef = useRef<HTMLTableCellElement>(null)
   const footerRef = useRef<HTMLDivElement>(null)
 
@@ -335,33 +339,38 @@ export function DataTable({
                 </tr>
               )
 
-              if (!editing) return <Fragment key={ri}>{tr}</Fragment>
-
-              const hasPk = editing.primaryKeys.length > 0
-              const canWrite = !editing.readOnly
+              const hasPk = (editing?.primaryKeys.length ?? 0) > 0
+              const canWrite = Boolean(editing) && !editing?.readOnly
+              const canEditCell = canWrite && hasPk
               return (
                 <ContextMenu.Root key={ri}>
                   <ContextMenu.Trigger asChild>{tr}</ContextMenu.Trigger>
                   <ContextMenu.Portal>
                     <ContextMenu.Content className="z-50 min-w-48 overflow-hidden rounded-md border border-border bg-surface-2 p-1 text-xs text-text shadow-xl">
+                      <RowMenuItem
+                        icon={<Maximize2 size={13} />}
+                        onSelect={() => setDetail({ row: ri, col: contextColRef.current })}
+                      >
+                        {canEditCell ? 'View / edit value' : 'View value'}
+                      </RowMenuItem>
+                      <ContextMenu.Separator className="my-1 h-px bg-border" />
                       {canWrite && (
-                        <>
-                          <RowMenuItem
-                            icon={<Pencil size={13} />}
-                            disabled={!hasPk}
-                            onSelect={() => editing.onEditRow(ri)}
-                          >
-                            Edit row
-                          </RowMenuItem>
-                          <ContextMenu.Separator className="my-1 h-px bg-border" />
-                        </>
+                        <RowMenuItem
+                          icon={<Pencil size={13} />}
+                          disabled={!hasPk}
+                          onSelect={() => editing?.onEditRow(ri)}
+                        >
+                          Edit row
+                        </RowMenuItem>
                       )}
                       <RowMenuItem icon={<Copy size={13} />} onSelect={() => copyRowCsv(ri)}>
                         Copy row as CSV
                       </RowMenuItem>
-                      <RowMenuItem icon={<Copy size={13} />} onSelect={() => copyRowSql(ri)}>
-                        Copy row as SQL
-                      </RowMenuItem>
+                      {editing && (
+                        <RowMenuItem icon={<Copy size={13} />} onSelect={() => copyRowSql(ri)}>
+                          Copy row as SQL
+                        </RowMenuItem>
+                      )}
                       <RowMenuItem
                         icon={<Copy size={13} />}
                         onSelect={() => copyCell(ri, contextColRef.current)}
@@ -375,7 +384,7 @@ export function DataTable({
                             icon={<Trash2 size={13} />}
                             disabled={!hasPk}
                             danger
-                            onSelect={() => editing.onDeleteRow(ri)}
+                            onSelect={() => editing?.onDeleteRow(ri)}
                           >
                             Delete row
                           </RowMenuItem>
@@ -419,6 +428,19 @@ export function DataTable({
             Apply changes
           </Button>
         </div>
+      )}
+
+      {detail && (
+        <CellDetailModal
+          open
+          column={columns[detail.col]}
+          value={rows[detail.row]?.[detail.col]}
+          editable={Boolean(editing) && !editing?.readOnly && editing!.primaryKeys.length > 0}
+          onClose={() => setDetail(null)}
+          onSave={async (text) => {
+            if (editing) await editing.onApply(detail.row, columns[detail.col], text)
+          }}
+        />
       )}
     </div>
   )
