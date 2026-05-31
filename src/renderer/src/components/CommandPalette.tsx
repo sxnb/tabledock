@@ -43,6 +43,7 @@ export function CommandPalette({
   const [selected, setSelected] = useState(0)
   const [tables, setTables] = useState<string[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
+  const selectedRef = useRef<HTMLButtonElement>(null)
 
   const activeBackendId = active?.status === 'connected' ? active.sessionId : null
   const activeIsRelational = active ? RELATIONAL.includes(active.config.kind) : false
@@ -154,6 +155,11 @@ export function CommandPalette({
     setSelected((s) => Math.min(s, Math.max(0, filtered.length - 1)))
   }, [filtered.length])
 
+  // Keep the selected item visible when navigating with the arrow keys.
+  useEffect(() => {
+    selectedRef.current?.scrollIntoView({ block: 'nearest' })
+  }, [selected])
+
   if (!open) return null
 
   const run = (cmd: Command): void => {
@@ -226,6 +232,7 @@ export function CommandPalette({
                   return (
                     <button
                       key={cmd.id}
+                      ref={isSelected ? selectedRef : undefined}
                       onMouseMove={() => setSelected(idx)}
                       onClick={() => run(cmd)}
                       className={cn(
