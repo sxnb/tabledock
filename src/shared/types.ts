@@ -1,6 +1,6 @@
 // Types shared across the main process, preload, and renderer.
 
-export type DriverKind = 'mysql' | 'mariadb' | 'postgres' | 'mssql' | 'redis' | 'sqlite'
+export type DriverKind = 'mysql' | 'mariadb' | 'postgres' | 'mssql' | 'redis' | 'sqlite' | 'mongodb'
 
 /** TLS/SSL settings; cert fields hold absolute paths to PEM files. */
 export interface SslConfig {
@@ -221,6 +221,28 @@ export interface RedisValue {
   value: unknown
 }
 
+/** A MongoDB document, serialized as Extended JSON for transport/display. */
+export interface MongoDocument {
+  /** Extended-JSON of the document's _id, used to target updates/deletes. */
+  id: string
+  /** Pretty Extended-JSON of the full document. */
+  json: string
+}
+
+export interface MongoFindOptions {
+  /** Extended-JSON filter, e.g. '{ "age": { "$gt": 18 } }'. */
+  filter: string
+  page: number
+  pageSize: number
+}
+
+export interface MongoFindResult {
+  documents: MongoDocument[]
+  total: number
+  page: number
+  pageSize: number
+}
+
 /** Envelope returned across IPC so the renderer can handle errors uniformly. */
 export type IpcResult<T> = { ok: true; data: T } | { ok: false; error: string }
 
@@ -248,6 +270,25 @@ export interface DataDockApi {
     createDump(sessionId: string, params: CreateDumpParams): Promise<string | null>
     schemaGraph(sessionId: string, database?: string): Promise<SchemaGraph>
     query(sessionId: string, sql: string, database?: string): Promise<QueryResult>
+  }
+  mongo: {
+    databases(sessionId: string): Promise<string[]>
+    collections(sessionId: string, database: string): Promise<string[]>
+    find(
+      sessionId: string,
+      database: string,
+      collection: string,
+      opts: MongoFindOptions
+    ): Promise<MongoFindResult>
+    insert(sessionId: string, database: string, collection: string, json: string): Promise<void>
+    update(
+      sessionId: string,
+      database: string,
+      collection: string,
+      id: string,
+      json: string
+    ): Promise<void>
+    remove(sessionId: string, database: string, collection: string, id: string): Promise<void>
   }
   redis: {
     select(sessionId: string, index: number): Promise<void>

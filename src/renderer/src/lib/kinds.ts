@@ -1,4 +1,4 @@
-import { Database, HardDrive, Layers, type LucideIcon } from 'lucide-react'
+import { Database, HardDrive, Layers, Leaf, type LucideIcon } from 'lucide-react'
 import type { DriverKind } from '@shared/types'
 
 export interface KindMeta {
@@ -60,7 +60,23 @@ export const KIND_META: Record<DriverKind, KindMeta> = {
     color: '#ff6b81',
     defaultPort: 6379,
     relational: false
+  },
+  mongodb: {
+    label: 'MongoDB',
+    badge: 'DOC',
+    icon: Leaf,
+    color: '#4faa41',
+    defaultPort: 27017,
+    relational: false
   }
 }
 
-export const KIND_ORDER: DriverKind[] = ['mysql', 'mariadb', 'postgres', 'mssql', 'redis', 'sqlite']
+export const KIND_ORDER: DriverKind[] = [
+  'mysql',
+  'mariadb',
+  'postgres',
+  'mssql',
+  'mongodb',
+  'redis',
+  'sqlite'
+]

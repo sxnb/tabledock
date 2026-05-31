@@ -10,6 +10,8 @@ import type {
   GetRowsOptions,
   IpcResult,
   MenuContext,
+  MongoFindOptions,
+  MongoFindResult,
   OpenFileOptions,
   QueryHistoryEntry,
   QueryResult,
@@ -66,6 +68,32 @@ const api: DataDockApi = {
       invoke('db:schemaGraph', sessionId, database),
     query: (sessionId: string, sql: string, database?: string): Promise<QueryResult> =>
       invoke('db:query', sessionId, sql, database)
+  },
+  mongo: {
+    databases: (sessionId: string): Promise<string[]> => invoke('mongo:databases', sessionId),
+    collections: (sessionId: string, database: string): Promise<string[]> =>
+      invoke('mongo:collections', sessionId, database),
+    find: (
+      sessionId: string,
+      database: string,
+      collection: string,
+      opts: MongoFindOptions
+    ): Promise<MongoFindResult> => invoke('mongo:find', sessionId, database, collection, opts),
+    insert: (
+      sessionId: string,
+      database: string,
+      collection: string,
+      json: string
+    ): Promise<void> => invoke('mongo:insert', sessionId, database, collection, json),
+    update: (
+      sessionId: string,
+      database: string,
+      collection: string,
+      id: string,
+      json: string
+    ): Promise<void> => invoke('mongo:update', sessionId, database, collection, id, json),
+    remove: (sessionId: string, database: string, collection: string, id: string): Promise<void> =>
+      invoke('mongo:remove', sessionId, database, collection, id)
   },
   redis: {
     select: (sessionId: string, index: number): Promise<void> =>

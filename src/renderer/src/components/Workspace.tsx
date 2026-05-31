@@ -6,6 +6,7 @@ import { Button } from './ui/Button'
 import { EmptyState } from './ui/EmptyState'
 import { RelationalWorkspace } from './relational/RelationalWorkspace'
 import { RedisWorkspace } from './redis/RedisWorkspace'
+import { MongoWorkspace } from './mongo/MongoWorkspace'
 
 export function Workspace(): React.JSX.Element {
   const activeSessionId = useWorkspace((s) => s.activeSessionId)
@@ -56,6 +57,8 @@ export function Workspace(): React.JSX.Element {
   } else {
     content = meta.relational ? (
       <RelationalWorkspace session={session} />
+    ) : session.config.kind === 'mongodb' ? (
+      <MongoWorkspace session={session} />
     ) : (
       <RedisWorkspace session={session} />
     )

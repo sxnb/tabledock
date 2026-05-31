@@ -12,8 +12,11 @@ function buildMenu(): void {
   if (process.platform === 'darwin') template.push({ role: 'appMenu' })
 
   if (context.sessionId) {
+    const relational =
+      context.kind != null &&
+      ['mysql', 'mariadb', 'postgres', 'mssql', 'sqlite'].includes(context.kind)
     const items: MenuItemConstructorOptions[] = []
-    if (context.kind !== 'redis') {
+    if (relational) {
       items.push({ label: 'Import SQL files…', click: () => send('menu:import') })
     }
     items.push({ label: 'Create database dump…', click: () => send('menu:dump') })

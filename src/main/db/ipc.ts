@@ -2,6 +2,7 @@ import { ipcMain, dialog, BrowserWindow } from 'electron'
 import { readFileSync, writeFileSync } from 'fs'
 import { connectionManager } from './manager'
 import {
+  isMongoDriver,
   isRedisDriver,
   isRelationalDriver,
   type ConnectionConfig,
@@ -10,6 +11,8 @@ import {
   type InsertRowParams,
   type GetRowsOptions,
   type IpcResult,
+  type MongoDriverApi,
+  type MongoFindOptions,
   type OpenFileOptions,
   type RedisDriverApi,
   type RelationalDriver,
@@ -37,6 +40,12 @@ function relational(sessionId: string): RelationalDriver {
 function redis(sessionId: string): RedisDriverApi {
   const driver = connectionManager.get(sessionId)
   if (!isRedisDriver(driver)) throw new Error('Not a Redis connection')
+  return driver
+}
+
+function mongo(sessionId: string): MongoDriverApi {
+  const driver = connectionManager.get(sessionId)
+  if (!isMongoDriver(driver)) throw new Error('Not a MongoDB connection')
   return driver
 }
 
@@ -81,21 +90,21 @@ export function registerDbIpc(): void {
   })
   handle('db:createDump', async (sessionId: string, params: CreateDumpParams) => {
     const driver = connectionManager.get(sessionId)
-    const redisDump = isRedisDriver(driver)
     const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')
-    const ext = redisDump ? 'txt' : 'sql'
+    const ext = isRedisDriver(driver) ? 'txt' : isMongoDriver(driver) ? 'json' : 'sql'
     const win = BrowserWindow.getFocusedWindow() ?? undefined
     const save = win
       ? await dialog.showSaveDialog(win, saveOptions(params.name, stamp, ext))
       : await dialog.showSaveDialog(saveOptions(params.name, stamp, ext))
     if (save.canceled || !save.filePath) return null
-    const content = redisDump
-      ? await driver.dumpKeyspace()
-      : isRelationalDriver(driver)
-        ? await driver.dumpDatabase(params.database, {
-            includeCreateDatabase: params.includeCreateDatabase
-          })
-        : ''
+    let content = ''
+    if (isRedisDriver(driver)) content = await driver.dumpKeyspace()
+    else if (isMongoDriver(driver)) content = await driver.dumpJson(params.database || '')
+    else if (isRelationalDriver(driver)) {
+      content = await driver.dumpDatabase(params.database, {
+        includeCreateDatabase: params.includeCreateDatabase
+      })
+    }
     writeFileSync(save.filePath, content, 'utf-8')
     return save.filePath
   })
@@ -109,6 +118,28 @@ export function registerDbIpc(): void {
   )
   handle('redis:get', (sessionId: string, key: string) => redis(sessionId).getKey(key))
   handle('redis:command', (sessionId: string, args: string[]) => redis(sessionId).runCommand(args))
+
+  // MongoDB
+  handle('mongo:databases', (sessionId: string) => mongo(sessionId).listDatabases())
+  handle('mongo:collections', (sessionId: string, database: string) =>
+    mongo(sessionId).listCollections(database)
+  )
+  handle(
+    'mongo:find',
+    (sessionId: string, database: string, collection: string, opts: MongoFindOptions) =>
+      mongo(sessionId).find(database, collection, opts)
+  )
+  handle('mongo:insert', (sessionId: string, database: string, collection: string, json: string) =>
+    mongo(sessionId).insertDocument(database, collection, json)
+  )
+  handle(
+    'mongo:update',
+    (sessionId: string, database: string, collection: string, id: string, json: string) =>
+      mongo(sessionId).updateDocument(database, collection, id, json)
+  )
+  handle('mongo:remove', (sessionId: string, database: string, collection: string, id: string) =>
+    mongo(sessionId).deleteDocument(database, collection, id)
+  )
 
   // Generic file picker (SQLite database files, TLS certificates, …).
   handle('dialog:openFile', async (options?: OpenFileOptions) => {

@@ -4,6 +4,8 @@ import type {
   QueryResult,
   RedisScanResult,
   RedisValue,
+  MongoFindOptions,
+  MongoFindResult,
   RowsResult,
   SchemaGraph,
   TableMeta,
@@ -49,12 +51,31 @@ export interface RedisDriverApi {
   dumpKeyspace(): Promise<string>
 }
 
-export type AnyDriver = RelationalDriver | RedisDriverApi
+/** MongoDB driver — document-oriented. Documents are passed as Extended JSON. */
+export interface MongoDriverApi {
+  readonly kind: 'mongodb'
+  connect(): Promise<void>
+  disconnect(): Promise<void>
+  listDatabases(): Promise<string[]>
+  listCollections(database: string): Promise<string[]>
+  find(database: string, collection: string, opts: MongoFindOptions): Promise<MongoFindResult>
+  insertDocument(database: string, collection: string, json: string): Promise<void>
+  updateDocument(database: string, collection: string, id: string, json: string): Promise<void>
+  deleteDocument(database: string, collection: string, id: string): Promise<void>
+  /** Export all collections as an Extended-JSON document. */
+  dumpJson(database: string): Promise<string>
+}
+
+export type AnyDriver = RelationalDriver | RedisDriverApi | MongoDriverApi
 
 export function isRedisDriver(d: AnyDriver): d is RedisDriverApi {
   return d.kind === 'redis'
 }
 
+export function isMongoDriver(d: AnyDriver): d is MongoDriverApi {
+  return d.kind === 'mongodb'
+}
+
 export function isRelationalDriver(d: AnyDriver): d is RelationalDriver {
-  return d.kind !== 'redis'
+  return d.kind !== 'redis' && d.kind !== 'mongodb'
 }

@@ -4,7 +4,7 @@
 
 # DataDock
 
-**A sleek, modern desktop database client for MySQL, MariaDB, PostgreSQL, SQL Server, Redis & SQLite.**
+**A sleek, modern desktop database client for MySQL, MariaDB, PostgreSQL, SQL Server, MongoDB, Redis & SQLite.**
 
 Browse, query, edit, and visualize your databases — all from one minimalist, dark-themed workspace.
 
@@ -22,6 +22,7 @@ Browse, query, edit, and visualize your databases — all from one minimalist, d
 ![MariaDB](https://img.shields.io/badge/MariaDB-003545?logo=mariadb&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)
 ![SQL Server](https://img.shields.io/badge/SQL_Server-CC2927?logo=microsoftsqlserver&logoColor=white)
+![MongoDB](https://img.shields.io/badge/MongoDB-47A248?logo=mongodb&logoColor=white)
 ![Redis](https://img.shields.io/badge/Redis-FF4438?logo=redis&logoColor=white)
 ![SQLite](https://img.shields.io/badge/SQLite-003B57?logo=sqlite&logoColor=white)
 
@@ -33,7 +34,7 @@ Browse, query, edit, and visualize your databases — all from one minimalist, d
 
 ### 🔌 Connections
 
-- Save connections for **MySQL, MariaDB, PostgreSQL, SQL Server, Redis, and SQLite** and reopen them instantly on relaunch.
+- Save connections for **MySQL, MariaDB, PostgreSQL, SQL Server, MongoDB, Redis, and SQLite** and reopen them instantly on relaunch.
 - Passwords encrypted at rest via the OS keychain (Electron `safeStorage`) — never stored in plaintext.
 - Optional **SSL/TLS** with CA, client certificate, and key files.
 - Tag each connection with a **color** for at-a-glance identification (shown in the sidebar and as an accent bar atop the editor).
@@ -56,6 +57,12 @@ Browse, query, edit, and visualize your databases — all from one minimalist, d
 
 - Auto-laid-out **ER diagram** of the database (powered by React Flow + dagre), with column-level foreign-key edges, primary/foreign-key markers, pan, zoom, and drag.
 
+### 🍃 MongoDB
+
+- Database + collection browser with a dedicated document workspace.
+- Paginated documents rendered as Extended JSON, with an Extended-JSON **filter** query.
+- **Add / edit / delete documents** through a JSON editor (targets by `_id`).
+
 ### 🧬 Redis
 
 - Key browser with `SCAN`-based pattern search and per-key type badges.
@@ -75,7 +82,7 @@ Browse, query, edit, and visualize your databases — all from one minimalist, d
 | **Shell**        | Electron, [electron-vite](https://electron-vite.org/), electron-builder    |
 | **UI**           | React 19, TypeScript, Tailwind CSS v4, Zustand, lucide-react, Radix UI     |
 | **Editor & viz** | CodeMirror 6 (`@codemirror/lang-sql`), React Flow (`@xyflow/react`), dagre |
-| **Drivers**      | `mysql2`, `pg`, `mssql`, `ioredis`, `better-sqlite3`                       |
+| **Drivers**      | `mysql2`, `pg`, `mssql`, `mongodb`, `ioredis`, `better-sqlite3`            |
 
 Database drivers run in the Electron **main process** and are exposed to the renderer over a typed IPC bridge — the renderer never touches the network or filesystem directly.
 
@@ -159,9 +166,8 @@ Renderer (React)  ──invoke──▶  Preload (window.api)  ──IPC──�
 Planned/possible enhancements:
 
 - Export query results (CSV / JSON)
-- Row insertion and deletion
 - Persisted column widths and saved queries
-- Additional connection types
+- More database types (DuckDB, …)
 
 ---
 

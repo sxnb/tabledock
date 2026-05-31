@@ -26,12 +26,14 @@
     "better-sqlite3": "^12.10.0",
     "electron-updater": "^6.3.9",
     "ioredis": "^5.11.0",
+    "mongodb": "^7.2.0",
     "mssql": "^12.5.5",
     "mysql2": "^3.22.4",
     "pg": "^8.21.0",
     "ssh2": "^1.17.0"
   },
   "devDependencies": {
+    "@codemirror/lang-json": "^6.0.2",
     "@codemirror/lang-sql": "^6.10.0",
     "@codemirror/theme-one-dark": "^6.1.3",
     "@dagrejs/dagre": "^3.0.0",

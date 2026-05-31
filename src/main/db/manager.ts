@@ -5,6 +5,7 @@ import { PostgresDriver } from './drivers/postgres'
 import { SqliteDriver } from './drivers/sqlite'
 import { SqlServerDriver } from './drivers/sqlserver'
 import { RedisDriver } from './drivers/redis'
+import { MongoDriver } from './drivers/mongo'
 import { openTunnel, type Tunnel } from './tunnel'
 
 function createDriver(config: ConnectionConfig): AnyDriver {
@@ -21,6 +22,8 @@ function createDriver(config: ConnectionConfig): AnyDriver {
       return new SqliteDriver(config)
     case 'redis':
       return new RedisDriver(config)
+    case 'mongodb':
+      return new MongoDriver(config)
     default:
       throw new Error(`Unsupported connection kind: ${(config as ConnectionConfig).kind}`)
   }
@@ -32,7 +35,8 @@ const DEFAULT_PORTS: Record<DriverKind, number> = {
   postgres: 5432,
   mssql: 1433,
   redis: 6379,
-  sqlite: 0
+  sqlite: 0,
+  mongodb: 27017
 }
 
 /**
