@@ -48,6 +48,8 @@ export interface ConnectionConfig {
   ssh?: SshConfig
   /** Optional accent color (hex) used to visually tag the connection. */
   color?: string
+  /** When true, block writes (insert/update/delete/import) on this connection. */
+  readOnly?: boolean
 }
 
 export interface QueryResult {
@@ -337,6 +339,7 @@ export interface MenuContext {
   kind: DriverKind | null
   database?: string
   name?: string
+  readOnly?: boolean
 }
 
 export interface OpenFileOptions {

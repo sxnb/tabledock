@@ -26,6 +26,7 @@ const PAGE_SIZES = [25, 50, 100]
 export function MongoWorkspace({ session }: { session: Session }): React.JSX.Element {
   const sessionId = session.sessionId as string
   const database = session.selectedDatabase
+  const readOnly = Boolean(session.config.readOnly)
   const setSelectedDatabase = useWorkspace((s) => s.setSelectedDatabase)
 
   const [databases, setDatabases] = useState<string[]>([])
@@ -192,10 +193,12 @@ export function MongoWorkspace({ session }: { session: Session }): React.JSX.Ele
               <span>{total.toLocaleString()} docs</span>
               {loading && <Spinner size={13} />}
               <div className="flex-1" />
-              <Button size="sm" variant="secondary" onClick={() => setAddOpen(true)}>
-                <Plus size={13} />
-                Add document
-              </Button>
+              {!readOnly && (
+                <Button size="sm" variant="secondary" onClick={() => setAddOpen(true)}>
+                  <Plus size={13} />
+                  Add document
+                </Button>
+              )}
               <Select
                 className="h-7 w-auto pr-7 text-xs"
                 value={pageSize}
@@ -266,18 +269,20 @@ export function MongoWorkspace({ session }: { session: Session }): React.JSX.Ele
                       key={doc.id}
                       className="group relative rounded-md border border-border bg-surface-2"
                     >
-                      <div className="absolute right-1.5 top-1.5 flex items-center opacity-0 transition-opacity group-hover:opacity-100">
-                        <IconButton label="Edit document" onClick={() => setEditDoc(doc)}>
-                          <Pencil size={12} />
-                        </IconButton>
-                        <IconButton
-                          label="Delete document"
-                          className="hover:text-danger"
-                          onClick={() => setDeleteDoc(doc)}
-                        >
-                          <Trash2 size={12} />
-                        </IconButton>
-                      </div>
+                      {!readOnly && (
+                        <div className="absolute right-1.5 top-1.5 flex items-center opacity-0 transition-opacity group-hover:opacity-100">
+                          <IconButton label="Edit document" onClick={() => setEditDoc(doc)}>
+                            <Pencil size={12} />
+                          </IconButton>
+                          <IconButton
+                            label="Delete document"
+                            className="hover:text-danger"
+                            onClick={() => setDeleteDoc(doc)}
+                          >
+                            <Trash2 size={12} />
+                          </IconButton>
+                        </div>
+                      )}
                       <pre className="overflow-x-auto p-3 font-mono text-[11px] leading-relaxed text-text">
                         {doc.json}
                       </pre>

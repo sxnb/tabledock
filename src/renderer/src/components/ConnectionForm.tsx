@@ -50,7 +50,8 @@ function blankDraft(): Draft {
     filePath: '',
     redisDb: 0,
     ssl: { enabled: false },
-    ssh: { enabled: false, authMethod: 'password' }
+    ssh: { enabled: false, authMethod: 'password' },
+    readOnly: false
   }
 }
 
@@ -199,6 +200,13 @@ export function ConnectionForm({ open, editing, onClose }: ConnectionFormProps):
             onChange={(color) => set({ color: color ?? undefined })}
           />
         </div>
+
+        <Toggle
+          id="conn-readonly"
+          label="Read-only (block writes)"
+          checked={Boolean(draft.readOnly)}
+          onChange={(readOnly) => set({ readOnly })}
+        />
 
         {draft.kind === 'sqlite' ? (
           <div className="flex flex-col gap-1.5">

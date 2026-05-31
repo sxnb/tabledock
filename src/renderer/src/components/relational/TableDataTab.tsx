@@ -22,6 +22,7 @@ interface TableDataTabProps {
   table: string
   kind: DriverKind
   database?: string
+  readOnly?: boolean
 }
 
 const PAGE_SIZES = [50, 100, 500]
@@ -44,7 +45,8 @@ export function TableDataTab({
   sessionId,
   table,
   kind,
-  database
+  database,
+  readOnly
 }: TableDataTabProps): React.JSX.Element {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(100)
@@ -214,6 +216,7 @@ export function TableDataTab({
         primaryKeys: meta.primaryKeys,
         table,
         kind,
+        readOnly,
         onApply: applyEdit,
         onEditRow: (rowIndex) => setEditRowIndex(rowIndex),
         onDeleteRow: (rowIndex) => setDeleteRowIndex(rowIndex)
@@ -241,10 +244,12 @@ export function TableDataTab({
           </span>
         )}
         <div className="flex-1" />
-        <Button size="sm" variant="secondary" onClick={() => setAddOpen(true)} disabled={!meta}>
-          <Plus size={13} />
-          Add row
-        </Button>
+        {!readOnly && (
+          <Button size="sm" variant="secondary" onClick={() => setAddOpen(true)} disabled={!meta}>
+            <Plus size={13} />
+            Add row
+          </Button>
+        )}
         <Select
           className="h-7 w-auto pr-7 text-xs"
           value={pageSize}

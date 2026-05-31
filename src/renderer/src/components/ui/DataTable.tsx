@@ -17,6 +17,8 @@ export interface DataTableEditing {
   primaryKeys: string[]
   table: string
   kind: DriverKind
+  /** When true, disable all write actions (inline edit, edit/delete row). */
+  readOnly?: boolean
   /** Persist a single cell change; should throw on failure. */
   onApply: (rowIndex: number, column: string, value: unknown) => Promise<void>
   /** Open the full row editor. */
@@ -96,7 +98,7 @@ export function DataTable({
     return map
   }, [editing])
 
-  const editable = Boolean(editing) && (editing?.primaryKeys.length ?? 0) > 0
+  const editable = Boolean(editing) && !editing?.readOnly && (editing?.primaryKeys.length ?? 0) > 0
   // The column the context menu was opened on (for "copy cell value").
   const contextColRef = useRef(0)
 
@@ -293,19 +295,24 @@ export function DataTable({
               if (!editing) return <Fragment key={ri}>{tr}</Fragment>
 
               const hasPk = editing.primaryKeys.length > 0
+              const canWrite = !editing.readOnly
               return (
                 <ContextMenu.Root key={ri}>
                   <ContextMenu.Trigger asChild>{tr}</ContextMenu.Trigger>
                   <ContextMenu.Portal>
                     <ContextMenu.Content className="z-50 min-w-48 overflow-hidden rounded-md border border-border bg-surface-2 p-1 text-xs text-text shadow-xl">
-                      <RowMenuItem
-                        icon={<Pencil size={13} />}
-                        disabled={!hasPk}
-                        onSelect={() => editing.onEditRow(ri)}
-                      >
-                        Edit row
-                      </RowMenuItem>
-                      <ContextMenu.Separator className="my-1 h-px bg-border" />
+                      {canWrite && (
+                        <>
+                          <RowMenuItem
+                            icon={<Pencil size={13} />}
+                            disabled={!hasPk}
+                            onSelect={() => editing.onEditRow(ri)}
+                          >
+                            Edit row
+                          </RowMenuItem>
+                          <ContextMenu.Separator className="my-1 h-px bg-border" />
+                        </>
+                      )}
                       <RowMenuItem icon={<Copy size={13} />} onSelect={() => copyRowCsv(ri)}>
                         Copy row as CSV
                       </RowMenuItem>
@@ -318,15 +325,19 @@ export function DataTable({
                       >
                         Copy cell value
                       </RowMenuItem>
-                      <ContextMenu.Separator className="my-1 h-px bg-border" />
-                      <RowMenuItem
-                        icon={<Trash2 size={13} />}
-                        disabled={!hasPk}
-                        danger
-                        onSelect={() => editing.onDeleteRow(ri)}
-                      >
-                        Delete row
-                      </RowMenuItem>
+                      {canWrite && (
+                        <>
+                          <ContextMenu.Separator className="my-1 h-px bg-border" />
+                          <RowMenuItem
+                            icon={<Trash2 size={13} />}
+                            disabled={!hasPk}
+                            danger
+                            onSelect={() => editing.onDeleteRow(ri)}
+                          >
+                            Delete row
+                          </RowMenuItem>
+                        </>
+                      )}
                     </ContextMenu.Content>
                   </ContextMenu.Portal>
                 </ContextMenu.Root>

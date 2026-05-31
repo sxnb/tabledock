@@ -57,6 +57,7 @@ async function withTunnel(
 interface Live {
   driver: AnyDriver
   tunnel?: Tunnel
+  readOnly: boolean
 }
 
 /** Registry of live connections keyed by an ephemeral session id. */
@@ -73,8 +74,12 @@ class ConnectionManager {
       throw err
     }
     const sessionId = randomUUID()
-    this.sessions.set(sessionId, { driver, tunnel })
+    this.sessions.set(sessionId, { driver, tunnel, readOnly: Boolean(config.readOnly) })
     return sessionId
+  }
+
+  isReadOnly(sessionId: string): boolean {
+    return this.sessions.get(sessionId)?.readOnly ?? false
   }
 
   /** Connect, validate, then immediately tear down — used by "Test". */

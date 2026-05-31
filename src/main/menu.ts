@@ -16,7 +16,7 @@ function buildMenu(): void {
       context.kind != null &&
       ['mysql', 'mariadb', 'postgres', 'mssql', 'sqlite'].includes(context.kind)
     const items: MenuItemConstructorOptions[] = []
-    if (relational) {
+    if (relational && !context.readOnly) {
       items.push({ label: 'Import SQL files…', click: () => send('menu:import') })
     }
     items.push({ label: 'Create database dump…', click: () => send('menu:dump') })

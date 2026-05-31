@@ -238,6 +238,7 @@ export function RelationalWorkspace({ session }: { session: Session }): React.JS
               table={activeTab.table as string}
               kind={session.config.kind}
               database={isSqlite ? undefined : session.selectedDatabase}
+              readOnly={session.config.readOnly}
             />
           ) : activeTab.kind === 'relations' ? (
             <RelationsView

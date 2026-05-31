@@ -49,6 +49,10 @@ function mongo(sessionId: string): MongoDriverApi {
   return driver
 }
 
+function assertWritable(sessionId: string): void {
+  if (connectionManager.isReadOnly(sessionId)) throw new Error('Connection is read-only')
+}
+
 export function registerDbIpc(): void {
   // Connection lifecycle
   handle('db:connect', (config: ConnectionConfig) => connectionManager.open(config))
@@ -66,15 +70,18 @@ export function registerDbIpc(): void {
   handle('db:tableMeta', (sessionId: string, table: string, database?: string) =>
     relational(sessionId).getTableMeta(table, database)
   )
-  handle('db:update', (sessionId: string, table: string, params: UpdateRowParams) =>
-    relational(sessionId).updateRow(table, params)
-  )
-  handle('db:delete', (sessionId: string, table: string, params: DeleteRowParams) =>
-    relational(sessionId).deleteRow(table, params)
-  )
-  handle('db:insert', (sessionId: string, table: string, params: InsertRowParams) =>
-    relational(sessionId).insertRow(table, params)
-  )
+  handle('db:update', (sessionId: string, table: string, params: UpdateRowParams) => {
+    assertWritable(sessionId)
+    return relational(sessionId).updateRow(table, params)
+  })
+  handle('db:delete', (sessionId: string, table: string, params: DeleteRowParams) => {
+    assertWritable(sessionId)
+    return relational(sessionId).deleteRow(table, params)
+  })
+  handle('db:insert', (sessionId: string, table: string, params: InsertRowParams) => {
+    assertWritable(sessionId)
+    return relational(sessionId).insertRow(table, params)
+  })
   handle('db:schemaGraph', (sessionId: string, database?: string) =>
     relational(sessionId).getSchemaGraph(database)
   )
@@ -82,6 +89,7 @@ export function registerDbIpc(): void {
     relational(sessionId).runQuery(sql, database)
   )
   handle('db:importSqlFiles', async (sessionId: string, paths: string[], database?: string) => {
+    assertWritable(sessionId)
     const driver = relational(sessionId)
     for (const path of paths) {
       await driver.runScript(readFileSync(path, 'utf-8'), database)
@@ -129,17 +137,24 @@ export function registerDbIpc(): void {
     (sessionId: string, database: string, collection: string, opts: MongoFindOptions) =>
       mongo(sessionId).find(database, collection, opts)
   )
-  handle('mongo:insert', (sessionId: string, database: string, collection: string, json: string) =>
-    mongo(sessionId).insertDocument(database, collection, json)
+  handle(
+    'mongo:insert',
+    (sessionId: string, database: string, collection: string, json: string) => {
+      assertWritable(sessionId)
+      return mongo(sessionId).insertDocument(database, collection, json)
+    }
   )
   handle(
     'mongo:update',
-    (sessionId: string, database: string, collection: string, id: string, json: string) =>
-      mongo(sessionId).updateDocument(database, collection, id, json)
+    (sessionId: string, database: string, collection: string, id: string, json: string) => {
+      assertWritable(sessionId)
+      return mongo(sessionId).updateDocument(database, collection, id, json)
+    }
   )
-  handle('mongo:remove', (sessionId: string, database: string, collection: string, id: string) =>
-    mongo(sessionId).deleteDocument(database, collection, id)
-  )
+  handle('mongo:remove', (sessionId: string, database: string, collection: string, id: string) => {
+    assertWritable(sessionId)
+    return mongo(sessionId).deleteDocument(database, collection, id)
+  })
 
   // Generic file picker (SQLite database files, TLS certificates, …).
   handle('dialog:openFile', async (options?: OpenFileOptions) => {

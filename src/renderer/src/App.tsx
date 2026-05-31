@@ -50,13 +50,20 @@ function App(): React.JSX.Element {
   const activeBackendId = active?.status === 'connected' ? (active.sessionId ?? null) : null
   const activeName = active?.config.name
   const activeDb = active && active.config.kind !== 'sqlite' ? active.selectedDatabase : undefined
+  const activeReadOnly = Boolean(active?.config.readOnly)
   useEffect(() => {
     window.api.menu.setContext(
       activeBackendId
-        ? { sessionId: activeBackendId, kind: activeKind, database: activeDb, name: activeName }
+        ? {
+            sessionId: activeBackendId,
+            kind: activeKind,
+            database: activeDb,
+            name: activeName,
+            readOnly: activeReadOnly
+          }
         : { sessionId: null, kind: null }
     )
-  }, [activeBackendId, activeKind, activeDb, activeName])
+  }, [activeBackendId, activeKind, activeDb, activeName, activeReadOnly])
 
   // Menu actions: Disconnect closes the active connection; Import/Dump open dialogs.
   useEffect(() => {
