@@ -84,9 +84,12 @@ Browse, query, edit, and visualize your databases — all from one minimalist wo
 
 ### 🍃 MongoDB
 
-- Database + collection browser with a dedicated document workspace.
-- Paginated documents rendered as Extended JSON, with an Extended-JSON **filter** query.
-- **Add / edit / delete documents** through a JSON editor (targets by `_id`).
+- Database + collection browser with a dedicated document workspace and per-collection **stats** (storage size, avg doc size, index count).
+- Paginated documents rendered as Extended JSON, with **filter, sort, and projection** queries (fast `estimatedDocumentCount` for unfiltered browsing).
+- **Aggregation pipeline** editor — run an Extended-JSON pipeline and view the results.
+- **Index management** — list, create (keys / unique / name), and drop indexes.
+- **Add / edit / delete documents** through a JSON editor (targets by `_id`); copy a document or its `_id`, and export results to JSON.
+- **Collection management** — create, drop, and rename collections (gated by read-only mode).
 
 ### 🧬 Redis
 
