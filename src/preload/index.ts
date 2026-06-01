@@ -144,6 +144,16 @@ const api: DataDockApi = {
       collection: string,
       name: string
     ): Promise<void> => invoke('mongo:dropIndex', sessionId, database, collection, name),
+    createCollection: (sessionId: string, database: string, name: string): Promise<void> =>
+      invoke('mongo:createCollection', sessionId, database, name),
+    dropCollection: (sessionId: string, database: string, name: string): Promise<void> =>
+      invoke('mongo:dropCollection', sessionId, database, name),
+    renameCollection: (
+      sessionId: string,
+      database: string,
+      from: string,
+      to: string
+    ): Promise<void> => invoke('mongo:renameCollection', sessionId, database, from, to),
     insert: (
       sessionId: string,
       database: string,

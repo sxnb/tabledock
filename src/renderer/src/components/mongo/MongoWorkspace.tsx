@@ -7,8 +7,11 @@ import {
   Trash2,
   ChevronLeft,
   ChevronRight,
-  Boxes
+  Boxes,
+  Copy,
+  Download
 } from 'lucide-react'
+import * as ContextMenu from '@radix-ui/react-context-menu'
 import type {
   MongoCollectionStats,
   MongoDocument,
@@ -75,6 +78,12 @@ export function MongoWorkspace({ session }: { session: Session }): React.JSX.Ele
   const [addOpen, setAddOpen] = useState(false)
   const [editDoc, setEditDoc] = useState<MongoDocument | null>(null)
   const [deleteDoc, setDeleteDoc] = useState<MongoDocument | null>(null)
+  // Collection management.
+  const [newCollOpen, setNewCollOpen] = useState(false)
+  const [newCollName, setNewCollName] = useState('')
+  const [renameCollTarget, setRenameCollTarget] = useState<string | null>(null)
+  const [renameCollValue, setRenameCollValue] = useState('')
+  const [dropCollTarget, setDropCollTarget] = useState<string | null>(null)
 
   // Load databases once connected, then pick a default.
   useEffect(() => {
@@ -205,6 +214,78 @@ export function MongoWorkspace({ session }: { session: Session }): React.JSX.Ele
     }
   }
 
+  const reloadCollections = async (): Promise<void> => {
+    if (!database) return
+    setCollections(await window.api.mongo.collections(sessionId, database))
+  }
+
+  const createCollection = async (): Promise<void> => {
+    const name = newCollName.trim()
+    if (!name || !database) return
+    try {
+      await window.api.mongo.createCollection(sessionId, database, name)
+      toast.success(`Created collection ${name}`)
+      setNewCollOpen(false)
+      setNewCollName('')
+      await reloadCollections()
+      openCollection(name)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
+    }
+  }
+
+  const confirmRenameColl = async (): Promise<void> => {
+    const next = renameCollValue.trim()
+    if (!next || !renameCollTarget || !database || next === renameCollTarget) {
+      setRenameCollTarget(null)
+      return
+    }
+    try {
+      await window.api.mongo.renameCollection(sessionId, database, renameCollTarget, next)
+      toast.success(`Renamed ${renameCollTarget} → ${next}`)
+      const wasOpen = collection === renameCollTarget
+      await reloadCollections()
+      if (wasOpen) openCollection(next)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
+    } finally {
+      setRenameCollTarget(null)
+    }
+  }
+
+  const confirmDropColl = async (): Promise<void> => {
+    if (!dropCollTarget || !database) return
+    try {
+      await window.api.mongo.dropCollection(sessionId, database, dropCollTarget)
+      toast.success(`Dropped collection ${dropCollTarget}`)
+      if (collection === dropCollTarget) {
+        setCollection(null)
+        setResult(null)
+      }
+      await reloadCollections()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
+    } finally {
+      setDropCollTarget(null)
+    }
+  }
+
+  const exportResults = (): void => {
+    if (!result || result.documents.length === 0) return
+    const json = `[\n${result.documents.map((d) => d.json).join(',\n')}\n]\n`
+    void window.api.dialog
+      .saveText(json, {
+        defaultName: `${collection ?? 'results'}.json`,
+        filters: [
+          { name: 'JSON', extensions: ['json'] },
+          { name: 'All Files', extensions: ['*'] }
+        ]
+      })
+      .then((path) => {
+        if (path) toast.success(`Exported ${result.documents.length} documents`)
+      })
+  }
+
   const openCollection = (name: string): void => {
     setCollection(name)
     setMode('find')
@@ -267,6 +348,11 @@ export function MongoWorkspace({ session }: { session: Session }): React.JSX.Ele
               className="h-7 w-full rounded-md border border-border bg-surface-2 pl-7 pr-2 text-xs text-text placeholder:text-faint focus:border-accent focus:outline-none"
             />
           </div>
+          {!readOnly && (
+            <IconButton label="New collection" onClick={() => setNewCollOpen(true)}>
+              <Plus size={13} />
+            </IconButton>
+          )}
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-2">
@@ -276,8 +362,8 @@ export function MongoWorkspace({ session }: { session: Session }): React.JSX.Ele
             </p>
           )}
           <ul className="flex flex-col gap-0.5">
-            {filteredCollections.map((name) => (
-              <li key={name}>
+            {filteredCollections.map((name) => {
+              const collButton = (
                 <button
                   onClick={() => openCollection(name)}
                   className={cn(
@@ -290,8 +376,41 @@ export function MongoWorkspace({ session }: { session: Session }): React.JSX.Ele
                   <Boxes size={13} className="shrink-0 text-faint" />
                   <span className="truncate font-mono">{name}</span>
                 </button>
-              </li>
-            ))}
+              )
+              return (
+                <li key={name}>
+                  {readOnly ? (
+                    collButton
+                  ) : (
+                    <ContextMenu.Root>
+                      <ContextMenu.Trigger asChild>{collButton}</ContextMenu.Trigger>
+                      <ContextMenu.Portal>
+                        <ContextMenu.Content className="z-50 min-w-44 overflow-hidden rounded-md border border-border bg-surface-2 p-1 text-xs text-text shadow-xl">
+                          <ContextMenu.Item
+                            onSelect={() => {
+                              setRenameCollValue(name)
+                              setRenameCollTarget(name)
+                            }}
+                            className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 outline-none data-[highlighted]:bg-accent-soft data-[highlighted]:text-text"
+                          >
+                            <Pencil size={13} className="text-faint" />
+                            Rename…
+                          </ContextMenu.Item>
+                          <ContextMenu.Separator className="my-1 h-px bg-border" />
+                          <ContextMenu.Item
+                            onSelect={() => setDropCollTarget(name)}
+                            className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-danger outline-none data-[highlighted]:bg-danger/15"
+                          >
+                            <Trash2 size={13} />
+                            Drop collection
+                          </ContextMenu.Item>
+                        </ContextMenu.Content>
+                      </ContextMenu.Portal>
+                    </ContextMenu.Root>
+                  )}
+                </li>
+              )
+            })}
           </ul>
         </div>
       </div>
@@ -387,6 +506,11 @@ export function MongoWorkspace({ session }: { session: Session }): React.JSX.Ele
                     <ChevronRight size={15} />
                   </IconButton>
                 </>
+              )}
+              {mode !== 'indexes' && result && result.documents.length > 0 && (
+                <IconButton label="Export results to JSON" onClick={exportResults}>
+                  <Download size={14} />
+                </IconButton>
               )}
               <IconButton
                 label="Refresh"
@@ -503,25 +627,47 @@ export function MongoWorkspace({ session }: { session: Session }): React.JSX.Ele
                 </div>
               ) : (
                 <ul className="flex flex-col gap-2">
-                  {result?.documents.map((doc) => (
+                  {result?.documents.map((doc, i) => (
                     <li
-                      key={doc.id}
+                      key={doc.id || i}
                       className="group relative rounded-md border border-border bg-surface-2"
                     >
-                      {mode === 'find' && !readOnly && doc.id && (
-                        <div className="absolute right-1.5 top-1.5 flex items-center opacity-0 transition-opacity group-hover:opacity-100">
-                          <IconButton label="Edit document" onClick={() => setEditDoc(doc)}>
-                            <Pencil size={12} />
-                          </IconButton>
+                      <div className="absolute right-1.5 top-1.5 flex items-center opacity-0 transition-opacity group-hover:opacity-100">
+                        <IconButton
+                          label="Copy document"
+                          onClick={() => {
+                            void navigator.clipboard.writeText(doc.json)
+                            toast.success('Document copied')
+                          }}
+                        >
+                          <Copy size={12} />
+                        </IconButton>
+                        {doc.id && (
                           <IconButton
-                            label="Delete document"
-                            className="hover:text-danger"
-                            onClick={() => setDeleteDoc(doc)}
+                            label="Copy _id"
+                            onClick={() => {
+                              void navigator.clipboard.writeText(doc.id)
+                              toast.success('_id copied')
+                            }}
                           >
-                            <Trash2 size={12} />
+                            <span className="font-mono text-[10px]">id</span>
                           </IconButton>
-                        </div>
-                      )}
+                        )}
+                        {mode === 'find' && !readOnly && doc.id && (
+                          <>
+                            <IconButton label="Edit document" onClick={() => setEditDoc(doc)}>
+                              <Pencil size={12} />
+                            </IconButton>
+                            <IconButton
+                              label="Delete document"
+                              className="hover:text-danger"
+                              onClick={() => setDeleteDoc(doc)}
+                            >
+                              <Trash2 size={12} />
+                            </IconButton>
+                          </>
+                        )}
+                      </div>
                       <pre className="overflow-x-auto p-3 font-mono text-[11px] leading-relaxed text-text">
                         {doc.json}
                       </pre>
@@ -543,6 +689,7 @@ export function MongoWorkspace({ session }: { session: Session }): React.JSX.Ele
           onClose={() => setAddOpen(false)}
           onSave={async (jsonText) => {
             await window.api.mongo.insert(sessionId, database, collection, jsonText)
+            toast.success('Document added')
             await load()
           }}
         />
@@ -558,6 +705,7 @@ export function MongoWorkspace({ session }: { session: Session }): React.JSX.Ele
           onClose={() => setEditDoc(null)}
           onSave={async (jsonText) => {
             await window.api.mongo.update(sessionId, database, collection, editDoc.id, jsonText)
+            toast.success('Document updated')
             await load()
           }}
         />
@@ -573,8 +721,11 @@ export function MongoWorkspace({ session }: { session: Session }): React.JSX.Ele
           if (database && collection && deleteDoc) {
             void window.api.mongo
               .remove(sessionId, database, collection, deleteDoc.id)
-              .then(() => load())
-              .catch((err) => setError(err instanceof Error ? err.message : String(err)))
+              .then(() => {
+                toast.success('Document deleted')
+                return load()
+              })
+              .catch((err) => toast.error(err instanceof Error ? err.message : String(err)))
           }
           setDeleteDoc(null)
         }}
@@ -593,6 +744,78 @@ export function MongoWorkspace({ session }: { session: Session }): React.JSX.Ele
         variant="danger"
         onConfirm={() => void confirmDropIndex()}
         onCancel={() => setDropIndexName(null)}
+      />
+
+      <Modal
+        open={newCollOpen}
+        title="Create collection"
+        onClose={() => setNewCollOpen(false)}
+        footer={
+          <>
+            <Button variant="secondary" size="sm" onClick={() => setNewCollOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => void createCollection()}
+              disabled={!newCollName.trim()}
+            >
+              Create
+            </Button>
+          </>
+        }
+      >
+        <Input
+          label="Collection name"
+          autoFocus
+          value={newCollName}
+          onChange={(e) => setNewCollName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') void createCollection()
+          }}
+        />
+      </Modal>
+
+      <Modal
+        open={renameCollTarget !== null}
+        title={`Rename ${renameCollTarget ?? ''}`}
+        onClose={() => setRenameCollTarget(null)}
+        footer={
+          <>
+            <Button variant="secondary" size="sm" onClick={() => setRenameCollTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => void confirmRenameColl()}
+              disabled={!renameCollValue.trim() || renameCollValue.trim() === renameCollTarget}
+            >
+              Rename
+            </Button>
+          </>
+        }
+      >
+        <Input
+          label="New name"
+          autoFocus
+          value={renameCollValue}
+          onChange={(e) => setRenameCollValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') void confirmRenameColl()
+          }}
+        />
+      </Modal>
+
+      <ConfirmDialog
+        open={dropCollTarget !== null}
+        title="Drop collection?"
+        description={`This permanently deletes the collection "${dropCollTarget}" and all its documents.`}
+        confirmLabel="Drop collection"
+        variant="danger"
+        onConfirm={() => void confirmDropColl()}
+        onCancel={() => setDropCollTarget(null)}
       />
     </div>
   )

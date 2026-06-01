@@ -399,6 +399,9 @@ export interface DataDockApi {
       options: { unique?: boolean; name?: string }
     ): Promise<void>
     dropIndex(sessionId: string, database: string, collection: string, name: string): Promise<void>
+    createCollection(sessionId: string, database: string, name: string): Promise<void>
+    dropCollection(sessionId: string, database: string, name: string): Promise<void>
+    renameCollection(sessionId: string, database: string, from: string, to: string): Promise<void>
     insert(sessionId: string, database: string, collection: string, json: string): Promise<void>
     update(
       sessionId: string,

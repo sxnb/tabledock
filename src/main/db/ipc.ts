@@ -207,6 +207,21 @@ export function registerDbIpc(): void {
   handle('mongo:stats', (sessionId: string, database: string, collection: string) =>
     mongo(sessionId).collectionStats(database, collection)
   )
+  handle('mongo:createCollection', (sessionId: string, database: string, name: string) => {
+    assertWritable(sessionId)
+    return mongo(sessionId).createCollection(database, name)
+  })
+  handle('mongo:dropCollection', (sessionId: string, database: string, name: string) => {
+    assertWritable(sessionId)
+    return mongo(sessionId).dropCollection(database, name)
+  })
+  handle(
+    'mongo:renameCollection',
+    (sessionId: string, database: string, from: string, to: string) => {
+      assertWritable(sessionId)
+      return mongo(sessionId).renameCollection(database, from, to)
+    }
+  )
   handle(
     'mongo:createIndex',
     (

@@ -162,6 +162,18 @@ export class MongoDriver implements MongoDriverApi {
     }
   }
 
+  async createCollection(database: string, name: string): Promise<void> {
+    await this.handle.db(database).createCollection(name)
+  }
+
+  async dropCollection(database: string, name: string): Promise<void> {
+    await this.handle.db(database).dropCollection(name)
+  }
+
+  async renameCollection(database: string, from: string, to: string): Promise<void> {
+    await this.handle.db(database).renameCollection(from, to)
+  }
+
   async insertDocument(database: string, collection: string, json: string): Promise<void> {
     const doc = EJSON.parse(json) as Record<string, unknown>
     await this.handle.db(database).collection(collection).insertOne(doc)

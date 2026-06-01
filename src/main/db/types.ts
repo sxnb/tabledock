@@ -84,6 +84,9 @@ export interface MongoDriverApi {
   ): Promise<void>
   dropIndex(database: string, collection: string, name: string): Promise<void>
   collectionStats(database: string, collection: string): Promise<MongoCollectionStats>
+  createCollection(database: string, name: string): Promise<void>
+  dropCollection(database: string, name: string): Promise<void>
+  renameCollection(database: string, from: string, to: string): Promise<void>
   insertDocument(database: string, collection: string, json: string): Promise<void>
   updateDocument(database: string, collection: string, id: string, json: string): Promise<void>
   deleteDocument(database: string, collection: string, id: string): Promise<void>
