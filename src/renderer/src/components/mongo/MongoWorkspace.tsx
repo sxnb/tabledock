@@ -78,7 +78,10 @@ export function MongoWorkspace({ session }: { session: Session }): React.JSX.Ele
   const [addOpen, setAddOpen] = useState(false)
   const [editDoc, setEditDoc] = useState<MongoDocument | null>(null)
   const [deleteDoc, setDeleteDoc] = useState<MongoDocument | null>(null)
-  // Collection management.
+  // Database / collection management.
+  const [newDbOpen, setNewDbOpen] = useState(false)
+  const [newDbName, setNewDbName] = useState('')
+  const [newDbColl, setNewDbColl] = useState('documents')
   const [newCollOpen, setNewCollOpen] = useState(false)
   const [newCollName, setNewCollName] = useState('')
   const [renameCollTarget, setRenameCollTarget] = useState<string | null>(null)
@@ -219,9 +222,32 @@ export function MongoWorkspace({ session }: { session: Session }): React.JSX.Ele
     setCollections(await window.api.mongo.collections(sessionId, database))
   }
 
+  // MongoDB has no standalone "create database" — a database springs into
+  // existence with its first collection, so we create that collection here.
+  const createDatabase = async (): Promise<void> => {
+    const db = newDbName.trim()
+    const coll = newDbColl.trim()
+    if (!db || !coll) return
+    try {
+      await window.api.mongo.createCollection(sessionId, db, coll)
+      toast.success(`Created database ${db}`)
+      setNewDbOpen(false)
+      setNewDbName('')
+      setNewDbColl('documents')
+      setDatabases(await window.api.mongo.databases(sessionId))
+      setSelectedDatabase(session.id, db)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
+    }
+  }
+
   const createCollection = async (): Promise<void> => {
     const name = newCollName.trim()
-    if (!name || !database) return
+    if (!name) return
+    if (!database) {
+      toast.error('Select or create a database first')
+      return
+    }
     try {
       await window.api.mongo.createCollection(sessionId, database, name)
       toast.success(`Created collection ${name}`)
@@ -324,8 +350,9 @@ export function MongoWorkspace({ session }: { session: Session }): React.JSX.Ele
     <div className="flex h-full min-h-0">
       {/* Left rail: database picker + collection list */}
       <div className="flex w-60 shrink-0 flex-col border-r border-border bg-surface">
-        <div className="rounded-b-lg border-b border-border p-2.5">
+        <div className="flex items-center gap-2 border-b border-border p-2.5">
           <Select
+            className="flex-1"
             value={database ?? ''}
             onChange={(e) => setSelectedDatabase(session.id, e.target.value)}
           >
@@ -336,6 +363,11 @@ export function MongoWorkspace({ session }: { session: Session }): React.JSX.Ele
               </option>
             ))}
           </Select>
+          {!readOnly && (
+            <IconButton label="New database" onClick={() => setNewDbOpen(true)}>
+              <Plus size={14} />
+            </IconButton>
+          )}
         </div>
 
         <div className="flex items-center gap-2 px-2.5 py-2">
@@ -349,7 +381,11 @@ export function MongoWorkspace({ session }: { session: Session }): React.JSX.Ele
             />
           </div>
           {!readOnly && (
-            <IconButton label="New collection" onClick={() => setNewCollOpen(true)}>
+            <IconButton
+              label={database ? 'New collection' : 'Select or create a database first'}
+              disabled={!database}
+              onClick={() => setNewCollOpen(true)}
+            >
               <Plus size={13} />
             </IconButton>
           )}
@@ -745,6 +781,47 @@ export function MongoWorkspace({ session }: { session: Session }): React.JSX.Ele
         onConfirm={() => void confirmDropIndex()}
         onCancel={() => setDropIndexName(null)}
       />
+
+      <Modal
+        open={newDbOpen}
+        title="Create database"
+        onClose={() => setNewDbOpen(false)}
+        footer={
+          <>
+            <Button variant="secondary" size="sm" onClick={() => setNewDbOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => void createDatabase()}
+              disabled={!newDbName.trim() || !newDbColl.trim()}
+            >
+              Create
+            </Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-3">
+          <p className="text-[11px] leading-relaxed text-faint">
+            MongoDB creates a database with its first collection, so a collection name is required.
+          </p>
+          <Input
+            label="Database name"
+            autoFocus
+            value={newDbName}
+            onChange={(e) => setNewDbName(e.target.value)}
+          />
+          <Input
+            label="First collection"
+            value={newDbColl}
+            onChange={(e) => setNewDbColl(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') void createDatabase()
+            }}
+          />
+        </div>
+      </Modal>
 
       <Modal
         open={newCollOpen}
