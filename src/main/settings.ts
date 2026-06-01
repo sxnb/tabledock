@@ -7,7 +7,8 @@ import type { AppSettings, IpcResult } from './db/types'
 
 const DEFAULTS: AppSettings = {
   sidebar: { color: null, noise: 0.15 },
-  themeMode: 'dark'
+  themeMode: 'dark',
+  showAiButton: true
 }
 
 function storePath(): string {

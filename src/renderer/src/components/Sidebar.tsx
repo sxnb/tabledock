@@ -34,6 +34,7 @@ export function Sidebar({
   const openConnection = useWorkspace((s) => s.openConnection)
   const closeConnection = useWorkspace((s) => s.closeConnection)
   const sidebarBg = useSettings((s) => s.settings.sidebar)
+  const showAiButton = useSettings((s) => s.settings.showAiButton ?? true)
   const aiConfigured = useAi((s) => s.configured)
   const [deleteTarget, setDeleteTarget] = useState<ConnectionConfig | null>(null)
 
@@ -67,20 +68,22 @@ export function Sidebar({
             DataDock
           </span>
           <div className="flex-1" />
-          <Tooltip label="AI assistant">
-            <button
-              aria-label="AI assistant"
-              onClick={onAiClick}
-              className={cn(
-                'dd-blob grid h-7 w-7 place-items-center bg-gradient-to-br from-accent to-blue text-white',
-                'shadow-[0_0_10px_rgba(139,123,255,0.45)] transition-shadow',
-                'hover:shadow-[0_0_16px_rgba(139,123,255,0.7)]',
-                'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/60'
-              )}
-            >
-              <Sparkles size={15} />
-            </button>
-          </Tooltip>
+          {showAiButton && (
+            <Tooltip label="AI assistant">
+              <button
+                aria-label="AI assistant"
+                onClick={onAiClick}
+                className={cn(
+                  'dd-blob grid h-7 w-7 place-items-center bg-gradient-to-br from-accent to-blue text-white',
+                  'shadow-[0_0_10px_rgba(139,123,255,0.45)] transition-shadow',
+                  'hover:shadow-[0_0_16px_rgba(139,123,255,0.7)]',
+                  'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/60'
+                )}
+              >
+                <Sparkles size={15} />
+              </button>
+            </Tooltip>
+          )}
         </header>
 
         <div className="mt-1 flex-1 overflow-y-auto px-2 pb-3">

@@ -249,6 +249,8 @@ export interface AppSettings {
   themeMode: ThemeMode
   /** AI assistant provider + model (key stored encrypted, separately). */
   ai?: AiConfig
+  /** Whether the AI assistant button is shown in the sidebar. Defaults to true. */
+  showAiButton?: boolean
 }
 
 /** A column as shown in the relation diagram. */

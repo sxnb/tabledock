@@ -8,6 +8,7 @@ import { cn } from '@renderer/lib/cn'
 import { Modal } from './ui/Modal'
 import { Button } from './ui/Button'
 import { Input } from './ui/Input'
+import { Toggle } from './ui/Toggle'
 import { Slider } from './ui/Slider'
 import { ColorPicker } from './ui/ColorPicker'
 import { NoiseBackground } from './ui/NoiseBackground'
@@ -198,6 +199,8 @@ function AiTab(): React.JSX.Element {
   const storeModel = useAi((s) => s.model)
   const setConfig = useAi((s) => s.setConfig)
   const saveKey = useAi((s) => s.saveKey)
+  const showAiButton = useSettings((s) => s.settings.showAiButton ?? true)
+  const setShowAiButton = useSettings((s) => s.setShowAiButton)
 
   const [provider, setProvider] = useState<AiProvider>(storeProvider)
   const [model, setModel] = useState(storeModel)
@@ -239,6 +242,13 @@ function AiTab(): React.JSX.Element {
         — it’s encrypted and stored locally, and only your database schema (table and column names)
         is sent to the provider, never your data.
       </p>
+
+      <Toggle
+        id="ai-show-button"
+        label="Show AI button in the sidebar"
+        checked={showAiButton}
+        onChange={(v) => void setShowAiButton(v)}
+      />
 
       <section className="flex flex-col gap-2">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-faint">Provider</h3>
