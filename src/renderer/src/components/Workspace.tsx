@@ -22,7 +22,7 @@ function Kbd({ children }: { children: React.ReactNode }): React.JSX.Element {
 function WelcomeScreen(): React.JSX.Element {
   return (
     <div className="dd-glow relative flex h-full flex-col items-center justify-center gap-5 px-6 text-center">
-      <div className="grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-accent to-blue text-white shadow-[0_0_30px_rgba(139,123,255,0.45)]">
+      <div className="grid h-14 w-14 place-items-center rounded-2xl bg-[radial-gradient(circle_at_50%_42%,rgba(157,139,255,0.6),#0a0c14_72%)] text-white shadow-[0_0_30px_rgba(139,123,255,0.45)] ring-1 ring-white/10">
         <Database size={26} />
       </div>
 

@@ -45,7 +45,7 @@ export function Sidebar({ onNew, onEdit }: SidebarProps): React.JSX.Element {
       <NoiseBackground color={sidebarBg.color} noise={sidebarBg.noise} />
       <div className="relative z-10 flex min-h-0 flex-1 flex-col">
         <header className="flex items-center gap-2 px-4 py-3.5">
-          <div className="grid h-7 w-7 place-items-center rounded-md bg-gradient-to-br from-accent to-blue text-white shadow-[0_0_12px_rgba(139,123,255,0.5)]">
+          <div className="grid h-7 w-7 place-items-center rounded-md bg-[radial-gradient(circle_at_50%_42%,rgba(157,139,255,0.55),#0a0c14_72%)] text-white shadow-[0_0_12px_rgba(139,123,255,0.5)] ring-1 ring-white/10">
             <DatabaseIcon size={15} />
           </div>
           <span
