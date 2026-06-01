@@ -56,7 +56,7 @@ Browse, query, edit, and visualize your databases — all from one minimalist wo
 - **Cell detail viewer** — expand any cell into a roomy panel to read/edit long text, pretty-printed JSON, or blobs.
 - **Foreign-key navigation** — jump from an FK cell straight to the referenced row in a new, pre-filtered tab.
 - **Table Structure view** — columns (type, nullability, default, PK, extra), indexes, and the `CREATE` statement.
-- **Schema editing** — add / drop columns and rename / drop tables right from the Structure view and table list.
+- **Schema editing** — create databases and tables (column builder), add / drop columns, and rename / drop tables.
 
 ### 📤 Import & export
 
@@ -198,7 +198,7 @@ Renderer (React)  ──invoke──▶  Preload (window.api)  ──IPC──�
 
 Planned/possible enhancements:
 
-- Create-table builder and index management
+- Relational index management (create / drop indexes)
 - Batched bulk inserts and query cancellation
 - Charts and column profiling from query results
 - More database types (DuckDB, …)
