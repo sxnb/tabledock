@@ -39,6 +39,9 @@ const PROVIDERS: { value: AiProvider; label: string }[] = [
   { value: 'anthropic', label: 'Anthropic' }
 ]
 
+/** Sentinel value for the "Custom…" model dropdown option. */
+const CUSTOM_MODEL = '__custom__'
+
 type Tab = 'appearance' | 'ai'
 
 interface SettingsModalProps {
@@ -205,6 +208,8 @@ function AiTab(): React.JSX.Element {
 
   const [provider, setProvider] = useState<AiProvider>(storeProvider)
   const [model, setModel] = useState(storeModel)
+  // Custom mode = a model not in the curated list (free-text entry).
+  const [custom, setCustom] = useState(!MODELS[storeProvider].includes(storeModel))
   const [apiKey, setApiKey] = useState('')
   const [keySaved, setKeySaved] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -216,6 +221,7 @@ function AiTab(): React.JSX.Element {
   const onProvider = (p: AiProvider): void => {
     setProvider(p)
     setModel(DEFAULT_MODEL[p])
+    setCustom(false)
     setApiKey('')
   }
 
@@ -272,16 +278,35 @@ function AiTab(): React.JSX.Element {
         </div>
       </section>
 
-      <Select label="Model" value={model} onChange={(e) => setModel(e.target.value)}>
-        {/* Keep a previously saved model selectable even if not in the curated list. */}
-        {(MODELS[provider].includes(model) ? MODELS[provider] : [model, ...MODELS[provider]]).map(
-          (m) => (
-            <option key={m} value={m}>
-              {m}
-            </option>
-          )
-        )}
+      <Select
+        label="Model"
+        value={custom ? CUSTOM_MODEL : model}
+        onChange={(e) => {
+          if (e.target.value === CUSTOM_MODEL) {
+            setCustom(true)
+          } else {
+            setCustom(false)
+            setModel(e.target.value)
+          }
+        }}
+      >
+        {MODELS[provider].map((m) => (
+          <option key={m} value={m}>
+            {m}
+          </option>
+        ))}
+        <option value={CUSTOM_MODEL}>Custom…</option>
       </Select>
+
+      {custom && (
+        <Input
+          label="Custom model name"
+          autoFocus
+          value={model}
+          onChange={(e) => setModel(e.target.value)}
+          placeholder="e.g. gpt-4.1-2025-04-14"
+        />
+      )}
 
       <div className="flex flex-col gap-1.5">
         <span className="flex items-center gap-2 text-xs font-medium text-muted">
