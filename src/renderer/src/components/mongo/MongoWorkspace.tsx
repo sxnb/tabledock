@@ -36,6 +36,10 @@ export function MongoWorkspace({ session }: { session: Session }): React.JSX.Ele
 
   const [filterDraft, setFilterDraft] = useState('{}')
   const [filter, setFilter] = useState('{}')
+  const [sortDraft, setSortDraft] = useState('')
+  const [sort, setSort] = useState('')
+  const [projDraft, setProjDraft] = useState('')
+  const [projection, setProjection] = useState('')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(50)
   const [result, setResult] = useState<MongoFindResult | null>(null)
@@ -90,6 +94,8 @@ export function MongoWorkspace({ session }: { session: Session }): React.JSX.Ele
     try {
       const res = await window.api.mongo.find(sessionId, database, collection, {
         filter,
+        sort,
+        projection,
         page,
         pageSize
       })
@@ -105,13 +111,24 @@ export function MongoWorkspace({ session }: { session: Session }): React.JSX.Ele
     // eslint-disable-next-line react-hooks/set-state-in-effect -- find sets loading/result intentionally
     void load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId, database, collection, filter, page, pageSize])
+  }, [sessionId, database, collection, filter, sort, projection, page, pageSize])
 
   const openCollection = (name: string): void => {
     setCollection(name)
     setFilter('{}')
     setFilterDraft('{}')
+    setSort('')
+    setSortDraft('')
+    setProjection('')
+    setProjDraft('')
     setPage(1)
+  }
+
+  const applyQuery = (): void => {
+    setPage(1)
+    setFilter(filterDraft.trim() || '{}')
+    setSort(sortDraft.trim())
+    setProjection(projDraft.trim())
   }
 
   const total = result?.total ?? 0
@@ -236,11 +253,10 @@ export function MongoWorkspace({ session }: { session: Session }): React.JSX.Ele
             </div>
 
             <form
-              className="flex items-center gap-2 border-b border-border bg-surface px-3 py-1.5"
+              className="flex flex-col gap-1.5 border-b border-border bg-surface px-3 py-1.5"
               onSubmit={(e) => {
                 e.preventDefault()
-                setPage(1)
-                setFilter(filterDraft.trim() || '{}')
+                applyQuery()
               }}
             >
               <input
@@ -249,10 +265,24 @@ export function MongoWorkspace({ session }: { session: Session }): React.JSX.Ele
                 placeholder='Filter (Extended JSON), e.g. { "age": { "$gt": 18 } }'
                 className="h-7 min-w-0 flex-1 rounded-md border border-border bg-surface-2 px-2 font-mono text-xs text-text placeholder:text-faint focus:border-accent focus:outline-none"
               />
-              <Button size="sm" variant="primary" type="submit">
-                <Search size={13} />
-                Search
-              </Button>
+              <div className="flex items-center gap-2">
+                <input
+                  value={sortDraft}
+                  onChange={(e) => setSortDraft(e.target.value)}
+                  placeholder='Sort, e.g. { "age": -1 }'
+                  className="h-7 min-w-0 flex-1 rounded-md border border-border bg-surface-2 px-2 font-mono text-xs text-text placeholder:text-faint focus:border-accent focus:outline-none"
+                />
+                <input
+                  value={projDraft}
+                  onChange={(e) => setProjDraft(e.target.value)}
+                  placeholder='Project, e.g. { "name": 1 }'
+                  className="h-7 min-w-0 flex-1 rounded-md border border-border bg-surface-2 px-2 font-mono text-xs text-text placeholder:text-faint focus:border-accent focus:outline-none"
+                />
+                <Button size="sm" variant="primary" type="submit">
+                  <Search size={13} />
+                  Search
+                </Button>
+              </div>
             </form>
 
             <div className="min-h-0 flex-1 overflow-auto p-3">
@@ -269,7 +299,7 @@ export function MongoWorkspace({ session }: { session: Session }): React.JSX.Ele
                       key={doc.id}
                       className="group relative rounded-md border border-border bg-surface-2"
                     >
-                      {!readOnly && (
+                      {!readOnly && doc.id && (
                         <div className="absolute right-1.5 top-1.5 flex items-center opacity-0 transition-opacity group-hover:opacity-100">
                           <IconButton label="Edit document" onClick={() => setEditDoc(doc)}>
                             <Pencil size={12} />

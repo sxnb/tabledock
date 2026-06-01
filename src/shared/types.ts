@@ -298,6 +298,10 @@ export interface MongoDocument {
 export interface MongoFindOptions {
   /** Extended-JSON filter, e.g. '{ "age": { "$gt": 18 } }'. */
   filter: string
+  /** Extended-JSON sort, e.g. '{ "age": -1 }'. Empty for none. */
+  sort?: string
+  /** Extended-JSON projection, e.g. '{ "name": 1 }'. Empty for all fields. */
+  projection?: string
   page: number
   pageSize: number
 }

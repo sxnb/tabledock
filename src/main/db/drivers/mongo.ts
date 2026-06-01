@@ -63,18 +63,24 @@ export class MongoDriver implements MongoDriverApi {
     collection: string,
     opts: MongoFindOptions
   ): Promise<MongoFindResult> {
-    const { filter, page, pageSize } = opts
+    const { filter, sort, projection, page, pageSize } = opts
     const query = filter.trim() ? (EJSON.parse(filter) as Record<string, unknown>) : {}
+    const hasQuery = Object.keys(query).length > 0
     const coll = this.handle.db(database).collection(collection)
-    const total = await coll.countDocuments(query)
-    const docs = await coll
-      .find(query)
+    // estimatedDocumentCount is instant; use it when browsing the whole collection.
+    const total = hasQuery ? await coll.countDocuments(query) : await coll.estimatedDocumentCount()
+    let cursor = coll.find(query)
+    if (sort && sort.trim()) cursor = cursor.sort(EJSON.parse(sort) as Record<string, never>)
+    if (projection && projection.trim())
+      cursor = cursor.project(EJSON.parse(projection) as Record<string, never>)
+    const docs = await cursor
       .skip((page - 1) * pageSize)
       .limit(pageSize)
       .toArray()
     return {
       documents: docs.map((doc) => ({
-        id: EJSON.stringify(doc._id),
+        // _id may be absent when a projection excludes it (edit/delete then disabled).
+        id: doc._id === undefined ? '' : EJSON.stringify(doc._id),
         json: EJSON.stringify(doc, undefined, 2)
       })),
       total,
