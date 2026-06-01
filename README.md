@@ -167,20 +167,49 @@ npm run format        # Prettier
 
 ### Testing
 
-Tests run against **real databases in Docker** (no mocks). With Docker running:
+Tests run against **real databases in Docker** (no mocks). There are two layers:
+
+- **Integration** (`test/integration/`, Vitest) — imports the driver classes directly and runs the full contract against the live containers: browse, pagination, server-side sort/filter, table structure/indexes, row CRUD, schema editing (create/alter/drop), Mongo aggregation/index/collection management, and Redis types/TTL/pagination.
+- **E2E** (`test/e2e/`, Playwright + Electron) — launches the built app against a throwaway profile and drives the UI: the welcome screen + command palette, creating a connection through the form, and browsing seeded Postgres/MongoDB/Redis.
+
+#### Prerequisites
+
+- **Docker** (daemon running) — used to spin up the databases.
+- `npm install` — installs Vitest and Playwright. No `npx playwright install` is needed; the Electron runner uses the app's own Chromium.
+
+#### Commands
 
 ```bash
-npm run test:db:up    # start Postgres, MySQL, MariaDB, MongoDB, Redis (seeded)
-npm run test:int      # driver integration suite (Vitest) — exercises each driver
-npm run test:e2e      # build + Playwright E2E (launches the app, clicks around)
-npm run test:db:down  # stop containers and remove volumes
-# or: npm run test:all  (db up → int → e2e; leaves containers up for fast reruns)
-# or: npm run test:ci   (db up → int → e2e → always tear down, even on failure)
+npm run test:db:up    # start Postgres, MySQL, MariaDB, MongoDB, Redis (seeded), wait until healthy
+npm run test:int      # run the Vitest driver-integration suite (databases must be up)
+npm run test:e2e      # build the app, then run the Playwright E2E suite
+npm run test:db:down  # stop the containers and remove their volumes
+
+npm run test:all      # db up → int → e2e   (leaves containers running for fast reruns)
+npm run test:ci       # db up → int → e2e → always tear down, even on failure
 ```
 
-- **Integration** (`test/integration/`, Vitest): imports the driver classes directly and runs the full contract — browse, pagination/sort/filter, structure/indexes, CRUD, and schema/collection editing — against the live containers.
-- **E2E** (`test/e2e/`, Playwright + Electron): launches the built app against a throwaway profile and drives the UI (welcome/command palette, the connection form, and browsing seeded Postgres/MongoDB/Redis).
-- Databases run on non-standard host ports (see `test/docker-compose.yml`), overridable via env. SQLite needs no container; SQL Server is not yet included.
+Typical local loop: `test:db:up` once, then re-run `test:int` / `test:e2e` as you work, and `test:db:down` when finished. Use `test:ci` for a clean one-shot run.
+
+#### Test databases
+
+Defined in `test/docker-compose.yml` on **non-standard host ports** so they never clash with a local install. Each is seeded once on first start (`test/seed/`) with a `datadock_test` database containing `users` + `posts` (Mongo: a `users` collection):
+
+| Database   | Host port | Credentials             |
+| ---------- | --------- | ----------------------- |
+| PostgreSQL | 55432     | `datadock` / `datadock` |
+| MySQL      | 53306     | `root` / `datadock`     |
+| MariaDB    | 53307     | `root` / `datadock`     |
+| MongoDB    | 57017     | (no auth)               |
+| Redis      | 56379     | (no auth)               |
+
+Connection details live in `test/support/dbconfig.ts` and are shared by both suites. Host/ports are overridable via env (`DATADOCK_TEST_HOST`, `DATADOCK_PG_PORT`, `DATADOCK_MYSQL_PORT`, `DATADOCK_MARIADB_PORT`, `DATADOCK_MONGO_PORT`, `DATADOCK_REDIS_PORT`).
+
+#### Notes
+
+- E2E isolation: the app honours `DATADOCK_USER_DATA`, so each E2E run gets a fresh, throwaway profile (no saved connections/history bleed between runs or into your real data).
+- SQLite needs no container (it's a file); SQL Server is not in the harness yet.
+- The integration suite imports driver classes directly (never the connection manager) so it runs under plain Node — `better-sqlite3` is built for Electron's ABI and is covered by the E2E layer instead.
 
 ---
 
