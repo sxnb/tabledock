@@ -1,7 +1,7 @@
 import mysql from 'mysql2/promise'
 import { buildTls } from '../ssl'
 import { buildFilter } from '../filter'
-import { columnDdl } from '../ddl'
+import { columnDdl, createTableSql } from '../ddl'
 import { buildInserts } from '../sqlformat'
 import type {
   ColumnMeta,
@@ -194,6 +194,20 @@ export class MySqlDriver implements RelationalDriver {
     }
 
     return { columns, indexes, createSql }
+  }
+
+  async createDatabase(name: string): Promise<void> {
+    await this.db.query(`CREATE DATABASE ${quoteIdent(name)}`)
+  }
+
+  async createTable(
+    table: string,
+    columns: NewColumnSpec[],
+    primaryKey: string[],
+    database?: string
+  ): Promise<void> {
+    const qualified = qualify(database || this.config.database, table)
+    await this.db.query(createTableSql(qualified, columns, primaryKey, quoteIdent))
   }
 
   async addColumn(table: string, column: NewColumnSpec, database?: string): Promise<void> {

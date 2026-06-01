@@ -74,6 +74,23 @@ export function registerDbIpc(): void {
   handle('db:tableStructure', (sessionId: string, table: string, database?: string) =>
     relational(sessionId).getTableStructure(table, database)
   )
+  handle('db:createDatabase', (sessionId: string, name: string) => {
+    assertWritable(sessionId)
+    return relational(sessionId).createDatabase(name)
+  })
+  handle(
+    'db:createTable',
+    (
+      sessionId: string,
+      table: string,
+      columns: NewColumnSpec[],
+      primaryKey: string[],
+      db?: string
+    ) => {
+      assertWritable(sessionId)
+      return relational(sessionId).createTable(table, columns, primaryKey, db)
+    }
+  )
   handle('db:addColumn', (sessionId: string, table: string, column: NewColumnSpec, db?: string) => {
     assertWritable(sessionId)
     return relational(sessionId).addColumn(table, column, db)

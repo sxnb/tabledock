@@ -60,6 +60,15 @@ const api: DataDockApi = {
       table: string,
       database?: string
     ): Promise<TableStructure> => invoke('db:tableStructure', sessionId, table, database),
+    createDatabase: (sessionId: string, name: string): Promise<void> =>
+      invoke('db:createDatabase', sessionId, name),
+    createTable: (
+      sessionId: string,
+      table: string,
+      columns: NewColumnSpec[],
+      primaryKey: string[],
+      database?: string
+    ): Promise<void> => invoke('db:createTable', sessionId, table, columns, primaryKey, database),
     addColumn: (
       sessionId: string,
       table: string,

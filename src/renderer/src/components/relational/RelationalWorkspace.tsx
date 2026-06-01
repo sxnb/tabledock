@@ -30,6 +30,7 @@ import { QueryTab } from './QueryTab'
 import { RelationsView } from './RelationsView'
 import { QueryHistoryPanel } from './QueryHistoryPanel'
 import { SavedQueriesPanel } from './SavedQueriesPanel'
+import { CreateTableModal } from './CreateTableModal'
 
 function tabIcon(kind: string): React.JSX.Element {
   if (kind === 'query') return <Terminal size={12} />
@@ -68,6 +69,9 @@ export function RelationalWorkspace({ session }: { session: Session }): React.JS
   const [renameTarget, setRenameTarget] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const [dropTableTarget, setDropTableTarget] = useState<string | null>(null)
+  const [newDbOpen, setNewDbOpen] = useState(false)
+  const [newDbName, setNewDbName] = useState('')
+  const [createTableOpen, setCreateTableOpen] = useState(false)
 
   const readOnly = Boolean(session.config.readOnly)
   const activeDatabase = isSqlite ? undefined : session.selectedDatabase
@@ -162,6 +166,34 @@ export function RelationalWorkspace({ session }: { session: Session }): React.JS
     }
   }
 
+  const createDatabase = async (): Promise<void> => {
+    const name = newDbName.trim()
+    if (!name) return
+    try {
+      await window.api.db.createDatabase(sessionId, name)
+      toast.success(`Created database ${name}`)
+      setNewDbOpen(false)
+      setNewDbName('')
+      const dbs = await window.api.db.databases(sessionId)
+      setDatabases(dbs)
+      setSelectedDatabase(session.id, name)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
+    }
+  }
+
+  const createTable = async (
+    table: string,
+    columns: Parameters<typeof window.api.db.createTable>[2],
+    primaryKey: string[]
+  ): Promise<void> => {
+    await window.api.db.createTable(sessionId, table, columns, primaryKey, activeDatabase)
+    toast.success(`Created table ${table}`)
+    setCreateTableOpen(false)
+    await loadTables()
+    openTableTab(session.id, table)
+  }
+
   const confirmDropTable = async (): Promise<void> => {
     if (!dropTableTarget) return
     try {
@@ -188,8 +220,9 @@ export function RelationalWorkspace({ session }: { session: Session }): React.JS
       {/* Left rail: database picker + table list */}
       <div className="flex w-60 shrink-0 flex-col border-r border-border bg-surface">
         {!isSqlite && (
-          <div className="rounded-b-lg p-2.5">
+          <div className="flex items-center gap-2 p-2.5">
             <Select
+              className="flex-1"
               value={session.selectedDatabase ?? ''}
               onChange={(e) => requestDatabaseChange(e.target.value)}
             >
@@ -200,6 +233,11 @@ export function RelationalWorkspace({ session }: { session: Session }): React.JS
                 </option>
               ))}
             </Select>
+            {!readOnly && (
+              <IconButton label="New database" onClick={() => setNewDbOpen(true)}>
+                <Plus size={14} />
+              </IconButton>
+            )}
           </div>
         )}
 
@@ -214,6 +252,11 @@ export function RelationalWorkspace({ session }: { session: Session }): React.JS
                 className="h-7 w-full rounded-md border border-border bg-surface-2 pl-7 pr-2 text-xs text-text placeholder:text-faint focus:border-accent focus:outline-none"
               />
             </div>
+            {!readOnly && (
+              <IconButton label="New table" onClick={() => setCreateTableOpen(true)}>
+                <Plus size={12} />
+              </IconButton>
+            )}
             <IconButton label="Refresh tables" onClick={() => void loadTables()}>
               {loadingTables ? <Spinner size={12} /> : <RefreshCw size={12} />}
             </IconButton>
@@ -443,6 +486,41 @@ export function RelationalWorkspace({ session }: { session: Session }): React.JS
         onConfirm={() => void confirmDropTable()}
         onCancel={() => setDropTableTarget(null)}
       />
+
+      <Modal
+        open={newDbOpen}
+        title="Create database"
+        onClose={() => setNewDbOpen(false)}
+        footer={
+          <>
+            <Button variant="secondary" size="sm" onClick={() => setNewDbOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => void createDatabase()}
+              disabled={!newDbName.trim()}
+            >
+              Create
+            </Button>
+          </>
+        }
+      >
+        <Input
+          label="Database name"
+          autoFocus
+          value={newDbName}
+          onChange={(e) => setNewDbName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') void createDatabase()
+          }}
+        />
+      </Modal>
+
+      {createTableOpen && (
+        <CreateTableModal onClose={() => setCreateTableOpen(false)} onCreate={createTable} />
+      )}
     </div>
   )
 }

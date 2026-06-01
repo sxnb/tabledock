@@ -2,7 +2,7 @@ import Database from 'better-sqlite3'
 import { basename } from 'path'
 import { buildFilter } from '../filter'
 import { buildInserts } from '../sqlformat'
-import { columnDdl } from '../ddl'
+import { columnDdl, createTableSql } from '../ddl'
 import type {
   ColumnMeta,
   ConnectionConfig,
@@ -147,6 +147,14 @@ export class SqliteDriver implements RelationalDriver {
       .get(table) as { sql: string } | undefined
 
     return { columns, indexes, createSql: ddl?.sql ?? null }
+  }
+
+  async createDatabase(): Promise<void> {
+    throw new Error('SQLite has no databases; each connection is a single file')
+  }
+
+  async createTable(table: string, columns: NewColumnSpec[], primaryKey: string[]): Promise<void> {
+    this.handle.exec(createTableSql(quoteIdent(table), columns, primaryKey, quoteIdent))
   }
 
   async addColumn(table: string, column: NewColumnSpec): Promise<void> {

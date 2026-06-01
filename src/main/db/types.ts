@@ -33,6 +33,13 @@ export interface RelationalDriver {
   getRows(table: string, opts: GetRowsOptions): Promise<RowsResult>
   getTableMeta(table: string, database?: string): Promise<TableMeta>
   getTableStructure(table: string, database?: string): Promise<TableStructure>
+  createDatabase(name: string): Promise<void>
+  createTable(
+    table: string,
+    columns: NewColumnSpec[],
+    primaryKey: string[],
+    database?: string
+  ): Promise<void>
   addColumn(table: string, column: NewColumnSpec, database?: string): Promise<void>
   dropColumn(table: string, column: string, database?: string): Promise<void>
   renameTable(table: string, newName: string, database?: string): Promise<void>

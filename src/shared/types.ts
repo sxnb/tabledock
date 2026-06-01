@@ -348,6 +348,14 @@ export interface DataDockApi {
     rows(sessionId: string, table: string, opts: GetRowsOptions): Promise<RowsResult>
     tableMeta(sessionId: string, table: string, database?: string): Promise<TableMeta>
     tableStructure(sessionId: string, table: string, database?: string): Promise<TableStructure>
+    createDatabase(sessionId: string, name: string): Promise<void>
+    createTable(
+      sessionId: string,
+      table: string,
+      columns: NewColumnSpec[],
+      primaryKey: string[],
+      database?: string
+    ): Promise<void>
     addColumn(
       sessionId: string,
       table: string,

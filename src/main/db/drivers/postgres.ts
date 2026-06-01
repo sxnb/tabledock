@@ -2,7 +2,7 @@ import pg from 'pg'
 import { buildTls } from '../ssl'
 import { buildFilter } from '../filter'
 import { buildInserts } from '../sqlformat'
-import { columnDdl } from '../ddl'
+import { columnDdl, createTableSql } from '../ddl'
 import type {
   ColumnMeta,
   ConnectionConfig,
@@ -265,6 +265,28 @@ export class PostgresDriver implements RelationalDriver {
       map.set(row.typname, list)
     }
     return map
+  }
+
+  async createDatabase(name: string): Promise<void> {
+    const pool = await this.poolFor(this.currentDatabase)
+    await pool.query(`CREATE DATABASE ${quoteIdent(name)}`)
+  }
+
+  async createTable(
+    table: string,
+    columns: NewColumnSpec[],
+    primaryKey: string[],
+    database?: string
+  ): Promise<void> {
+    const pool = await this.poolFor(database || this.currentDatabase)
+    await pool.query(
+      createTableSql(
+        `${quoteIdent('public')}.${quoteIdent(table)}`,
+        columns,
+        primaryKey,
+        quoteIdent
+      )
+    )
   }
 
   async addColumn(table: string, column: NewColumnSpec, database?: string): Promise<void> {
