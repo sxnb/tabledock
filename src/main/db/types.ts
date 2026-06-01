@@ -72,6 +72,7 @@ export interface MongoDriverApi {
   listDatabases(): Promise<string[]>
   listCollections(database: string): Promise<string[]>
   find(database: string, collection: string, opts: MongoFindOptions): Promise<MongoFindResult>
+  aggregate(database: string, collection: string, pipeline: string): Promise<MongoFindResult>
   insertDocument(database: string, collection: string, json: string): Promise<void>
   updateDocument(database: string, collection: string, id: string, json: string): Promise<void>
   deleteDocument(database: string, collection: string, id: string): Promise<void>

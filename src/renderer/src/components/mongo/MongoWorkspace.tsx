@@ -47,6 +47,9 @@ export function MongoWorkspace({ session }: { session: Session }): React.JSX.Ele
   const [error, setError] = useState<string | null>(null)
   const reqRef = useRef(0)
 
+  const [mode, setMode] = useState<'find' | 'aggregate'>('find')
+  const [pipelineDraft, setPipelineDraft] = useState('[\n  \n]')
+
   const [addOpen, setAddOpen] = useState(false)
   const [editDoc, setEditDoc] = useState<MongoDocument | null>(null)
   const [deleteDoc, setDeleteDoc] = useState<MongoDocument | null>(null)
@@ -108,20 +111,46 @@ export function MongoWorkspace({ session }: { session: Session }): React.JSX.Ele
   }
 
   useEffect(() => {
+    if (mode !== 'find') return
     // eslint-disable-next-line react-hooks/set-state-in-effect -- find sets loading/result intentionally
     void load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId, database, collection, filter, sort, projection, page, pageSize])
+  }, [sessionId, database, collection, filter, sort, projection, page, pageSize, mode])
+
+  const runAggregate = async (): Promise<void> => {
+    if (!database || !collection) return
+    const reqId = ++reqRef.current
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await window.api.mongo.aggregate(sessionId, database, collection, pipelineDraft)
+      if (reqRef.current === reqId) setResult(res)
+    } catch (err) {
+      if (reqRef.current === reqId) setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      if (reqRef.current === reqId) setLoading(false)
+    }
+  }
 
   const openCollection = (name: string): void => {
     setCollection(name)
+    setMode('find')
     setFilter('{}')
     setFilterDraft('{}')
     setSort('')
     setSortDraft('')
     setProjection('')
     setProjDraft('')
+    setPipelineDraft('[\n  \n]')
+    setResult(null)
     setPage(1)
+  }
+
+  const switchMode = (next: 'find' | 'aggregate'): void => {
+    if (next === mode) return
+    setMode(next)
+    setResult(null)
+    setError(null)
   }
 
   const applyQuery = (): void => {
@@ -206,84 +235,129 @@ export function MongoWorkspace({ session }: { session: Session }): React.JSX.Ele
           <>
             <div className="flex items-center gap-2 border-b border-border bg-surface px-3 py-1.5 text-xs text-muted">
               <span className="font-mono text-text">{collection}</span>
+              <div className="flex items-center rounded-md border border-border p-0.5">
+                {(['find', 'aggregate'] as const).map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => switchMode(m)}
+                    className={cn(
+                      'rounded px-2 py-0.5 text-[11px] capitalize transition-colors',
+                      mode === m ? 'bg-accent-soft text-text' : 'text-muted hover:text-text'
+                    )}
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
               <span className="text-faint">·</span>
-              <span>{total.toLocaleString()} docs</span>
+              <span>
+                {total.toLocaleString()} {mode === 'aggregate' ? 'results' : 'docs'}
+              </span>
               {loading && <Spinner size={13} />}
               <div className="flex-1" />
-              {!readOnly && (
+              {mode === 'find' && !readOnly && (
                 <Button size="sm" variant="secondary" onClick={() => setAddOpen(true)}>
                   <Plus size={13} />
                   Add document
                 </Button>
               )}
-              <Select
-                className="h-7 w-auto pr-7 text-xs"
-                value={pageSize}
-                onChange={(e) => {
-                  setPageSize(Number(e.target.value))
-                  setPage(1)
-                }}
-              >
-                {PAGE_SIZES.map((s) => (
-                  <option key={s} value={s}>
-                    {s} / page
-                  </option>
-                ))}
-              </Select>
+              {mode === 'find' && (
+                <>
+                  <Select
+                    className="h-7 w-auto pr-7 text-xs"
+                    value={pageSize}
+                    onChange={(e) => {
+                      setPageSize(Number(e.target.value))
+                      setPage(1)
+                    }}
+                  >
+                    {PAGE_SIZES.map((s) => (
+                      <option key={s} value={s}>
+                        {s} / page
+                      </option>
+                    ))}
+                  </Select>
+                  <IconButton
+                    label="Previous"
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => p - 1)}
+                  >
+                    <ChevronLeft size={15} />
+                  </IconButton>
+                  <span className="tabular-nums">
+                    {page} / {totalPages}
+                  </span>
+                  <IconButton
+                    label="Next"
+                    disabled={page >= totalPages}
+                    onClick={() => setPage((p) => p + 1)}
+                  >
+                    <ChevronRight size={15} />
+                  </IconButton>
+                </>
+              )}
               <IconButton
-                label="Previous"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => p - 1)}
+                label="Refresh"
+                onClick={() => void (mode === 'aggregate' ? runAggregate() : load())}
               >
-                <ChevronLeft size={15} />
-              </IconButton>
-              <span className="tabular-nums">
-                {page} / {totalPages}
-              </span>
-              <IconButton
-                label="Next"
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                <ChevronRight size={15} />
-              </IconButton>
-              <IconButton label="Refresh" onClick={() => void load()}>
                 <RefreshCw size={13} />
               </IconButton>
             </div>
 
-            <form
-              className="flex flex-col gap-1.5 border-b border-border bg-surface px-3 py-1.5"
-              onSubmit={(e) => {
-                e.preventDefault()
-                applyQuery()
-              }}
-            >
-              <input
-                value={filterDraft}
-                onChange={(e) => setFilterDraft(e.target.value)}
-                placeholder='Filter (Extended JSON), e.g. { "age": { "$gt": 18 } }'
-                className="h-7 min-w-0 flex-1 rounded-md border border-border bg-surface-2 px-2 font-mono text-xs text-text placeholder:text-faint focus:border-accent focus:outline-none"
-              />
-              <div className="flex items-center gap-2">
-                <input
-                  value={sortDraft}
-                  onChange={(e) => setSortDraft(e.target.value)}
-                  placeholder='Sort, e.g. { "age": -1 }'
-                  className="h-7 min-w-0 flex-1 rounded-md border border-border bg-surface-2 px-2 font-mono text-xs text-text placeholder:text-faint focus:border-accent focus:outline-none"
+            {mode === 'aggregate' ? (
+              <div className="flex flex-col gap-1.5 border-b border-border bg-surface px-3 py-1.5">
+                <textarea
+                  value={pipelineDraft}
+                  onChange={(e) => setPipelineDraft(e.target.value)}
+                  spellCheck={false}
+                  placeholder='[ { "$match": { "active": true } }, { "$group": { "_id": "$type", "n": { "$sum": 1 } } } ]'
+                  className="h-24 w-full resize-y rounded-md border border-border bg-surface-2 px-2 py-1.5 font-mono text-xs text-text placeholder:text-faint focus:border-accent focus:outline-none"
                 />
-                <input
-                  value={projDraft}
-                  onChange={(e) => setProjDraft(e.target.value)}
-                  placeholder='Project, e.g. { "name": 1 }'
-                  className="h-7 min-w-0 flex-1 rounded-md border border-border bg-surface-2 px-2 font-mono text-xs text-text placeholder:text-faint focus:border-accent focus:outline-none"
-                />
-                <Button size="sm" variant="primary" type="submit">
-                  <Search size={13} />
-                  Search
-                </Button>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-faint">
+                    Extended-JSON pipeline · up to 500 results
+                  </span>
+                  <div className="flex-1" />
+                  <Button size="sm" variant="primary" onClick={() => void runAggregate()}>
+                    <Search size={13} />
+                    Run
+                  </Button>
+                </div>
               </div>
-            </form>
+            ) : (
+              <form
+                className="flex flex-col gap-1.5 border-b border-border bg-surface px-3 py-1.5"
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  applyQuery()
+                }}
+              >
+                <input
+                  value={filterDraft}
+                  onChange={(e) => setFilterDraft(e.target.value)}
+                  placeholder='Filter (Extended JSON), e.g. { "age": { "$gt": 18 } }'
+                  className="h-7 min-w-0 flex-1 rounded-md border border-border bg-surface-2 px-2 font-mono text-xs text-text placeholder:text-faint focus:border-accent focus:outline-none"
+                />
+                <div className="flex items-center gap-2">
+                  <input
+                    value={sortDraft}
+                    onChange={(e) => setSortDraft(e.target.value)}
+                    placeholder='Sort, e.g. { "age": -1 }'
+                    className="h-7 min-w-0 flex-1 rounded-md border border-border bg-surface-2 px-2 font-mono text-xs text-text placeholder:text-faint focus:border-accent focus:outline-none"
+                  />
+                  <input
+                    value={projDraft}
+                    onChange={(e) => setProjDraft(e.target.value)}
+                    placeholder='Project, e.g. { "name": 1 }'
+                    className="h-7 min-w-0 flex-1 rounded-md border border-border bg-surface-2 px-2 font-mono text-xs text-text placeholder:text-faint focus:border-accent focus:outline-none"
+                  />
+                  <Button size="sm" variant="primary" type="submit">
+                    <Search size={13} />
+                    Search
+                  </Button>
+                </div>
+              </form>
+            )}
 
             <div className="min-h-0 flex-1 overflow-auto p-3">
               {error ? (
@@ -299,7 +373,7 @@ export function MongoWorkspace({ session }: { session: Session }): React.JSX.Ele
                       key={doc.id}
                       className="group relative rounded-md border border-border bg-surface-2"
                     >
-                      {!readOnly && doc.id && (
+                      {mode === 'find' && !readOnly && doc.id && (
                         <div className="absolute right-1.5 top-1.5 flex items-center opacity-0 transition-opacity group-hover:opacity-100">
                           <IconButton label="Edit document" onClick={() => setEditDoc(doc)}>
                             <Pencil size={12} />

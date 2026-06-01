@@ -114,6 +114,13 @@ const api: DataDockApi = {
       collection: string,
       opts: MongoFindOptions
     ): Promise<MongoFindResult> => invoke('mongo:find', sessionId, database, collection, opts),
+    aggregate: (
+      sessionId: string,
+      database: string,
+      collection: string,
+      pipeline: string
+    ): Promise<MongoFindResult> =>
+      invoke('mongo:aggregate', sessionId, database, collection, pipeline),
     insert: (
       sessionId: string,
       database: string,

@@ -197,6 +197,11 @@ export function registerDbIpc(): void {
       mongo(sessionId).find(database, collection, opts)
   )
   handle(
+    'mongo:aggregate',
+    (sessionId: string, database: string, collection: string, pipeline: string) =>
+      mongo(sessionId).aggregate(database, collection, pipeline)
+  )
+  handle(
     'mongo:insert',
     (sessionId: string, database: string, collection: string, json: string) => {
       assertWritable(sessionId)

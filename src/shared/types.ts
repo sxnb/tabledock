@@ -366,6 +366,13 @@ export interface DataDockApi {
       collection: string,
       opts: MongoFindOptions
     ): Promise<MongoFindResult>
+    /** Run an Extended-JSON aggregation pipeline (capped result set). */
+    aggregate(
+      sessionId: string,
+      database: string,
+      collection: string,
+      pipeline: string
+    ): Promise<MongoFindResult>
     insert(sessionId: string, database: string, collection: string, json: string): Promise<void>
     update(
       sessionId: string,

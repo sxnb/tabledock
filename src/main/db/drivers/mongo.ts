@@ -3,6 +3,7 @@ import { EJSON } from 'bson'
 import type { ConnectionConfig, MongoDriverApi, MongoFindOptions, MongoFindResult } from '../types'
 
 const SYSTEM_DATABASES = new Set(['admin', 'local', 'config'])
+const AGGREGATE_LIMIT = 500
 
 /** MongoDB driver. Documents cross the IPC boundary as Extended JSON strings. */
 export class MongoDriver implements MongoDriverApi {
@@ -86,6 +87,27 @@ export class MongoDriver implements MongoDriverApi {
       total,
       page,
       pageSize
+    }
+  }
+
+  async aggregate(
+    database: string,
+    collection: string,
+    pipeline: string
+  ): Promise<MongoFindResult> {
+    const stages = pipeline.trim() ? EJSON.parse(pipeline) : []
+    if (!Array.isArray(stages)) throw new Error('Pipeline must be a JSON array of stages')
+    // Cap results so a broad pipeline can't pull an unbounded amount into memory.
+    const limited = [...stages, { $limit: AGGREGATE_LIMIT }]
+    const docs = await this.handle.db(database).collection(collection).aggregate(limited).toArray()
+    return {
+      documents: docs.map((doc) => ({
+        id: doc._id === undefined ? '' : EJSON.stringify(doc._id),
+        json: EJSON.stringify(doc, undefined, 2)
+      })),
+      total: docs.length,
+      page: 1,
+      pageSize: docs.length
     }
   }
 
