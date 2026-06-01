@@ -14,7 +14,7 @@ function storePath(): string {
   return join(app.getPath('userData'), 'settings.json')
 }
 
-function readSettings(): AppSettings {
+export function getSettings(): AppSettings {
   const path = storePath()
   if (!existsSync(path)) return DEFAULTS
   try {
@@ -29,7 +29,7 @@ function readSettings(): AppSettings {
   }
 }
 
-function writeSettings(settings: AppSettings): void {
+export function saveSettings(settings: AppSettings): void {
   writeFileSync(storePath(), JSON.stringify(settings, null, 2), 'utf-8')
 }
 
@@ -44,6 +44,6 @@ function handle<T>(channel: string, fn: (...args: never[]) => T): void {
 }
 
 export function registerSettingsIpc(): void {
-  handle('settings:get', (): AppSettings => readSettings())
-  handle('settings:set', (settings: AppSettings): void => writeSettings(settings))
+  handle('settings:get', (): AppSettings => getSettings())
+  handle('settings:set', (settings: AppSettings): void => saveSettings(settings))
 }

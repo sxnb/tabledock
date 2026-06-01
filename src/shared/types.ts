@@ -220,11 +220,35 @@ export interface SidebarSettings {
 
 export type ThemeMode = 'light' | 'dark' | 'system'
 
+export type AiProvider = 'openai' | 'anthropic'
+
+/** AI assistant configuration (non-secret; the API key is stored separately). */
+export interface AiConfig {
+  provider: AiProvider
+  model: string
+}
+
+export interface AiChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+/** A chat request sent to the main process (the key is injected there). */
+export interface AiChatRequest {
+  provider: AiProvider
+  model: string
+  /** System prompt (dialect + schema context). */
+  system: string
+  messages: AiChatMessage[]
+}
+
 /** Persisted, app-wide user settings. */
 export interface AppSettings {
   sidebar: SidebarSettings
   /** Color theme; 'system' follows the OS preference. */
   themeMode: ThemeMode
+  /** AI assistant provider + model (key stored encrypted, separately). */
+  ai?: AiConfig
 }
 
 /** A column as shown in the relation diagram. */
@@ -458,6 +482,22 @@ export interface DataDockApi {
   settings: {
     get(): Promise<AppSettings>
     set(settings: AppSettings): Promise<void>
+  }
+  ai: {
+    /** Current provider/model and whether a key is stored for that provider. */
+    getConfig(): Promise<{ provider: AiProvider; model: string; hasKey: boolean }>
+    setConfig(config: AiConfig): Promise<void>
+    /** Store (encrypt) an API key for a provider; never read back into the renderer. */
+    setKey(provider: AiProvider, key: string): Promise<void>
+    hasKey(provider: AiProvider): Promise<boolean>
+    /** Stream a chat completion; onDelta receives token chunks. Resolves with full text.
+     *  The caller supplies requestId so the stream can be cancelled. */
+    chat(
+      requestId: string,
+      request: AiChatRequest,
+      onDelta: (text: string) => void
+    ): Promise<string>
+    cancel(requestId: string): void
   }
   haptics: {
     /** Trigger a trackpad "level change" haptic (macOS only; no-op elsewhere). */

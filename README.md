@@ -75,6 +75,12 @@ Browse, query, edit, and visualize your databases — all from one minimalist wo
 - **Destructive-statement guard** — confirms before running `UPDATE`/`DELETE` without a `WHERE`, or `TRUNCATE`/`DROP`.
 - **Per-connection query history** and **saved queries** (named SQL snippets) in side panels — click to reopen in a new tab.
 
+### 🤖 AI assistant (BYOK)
+
+- Ask in plain English; the assistant returns a **dialect-correct SQL query** for the open database, grounded in its live schema.
+- **Bring your own key** — OpenAI or Anthropic; the key is encrypted locally and only the schema (table/column names) is sent, never your data.
+- Streamed replies with **Open in query tab** / **Copy** actions — you review and run; nothing executes automatically.
+
 ### 🎹 Command palette & shortcuts
 
 - **⌘/Ctrl + K** opens a command palette to jump to a saved connection, open a table or new query, or run a quick action — with fuzzy filtering and arrow-key navigation.

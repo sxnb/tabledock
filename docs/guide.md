@@ -83,6 +83,22 @@ command console.
 
 ![Redis value viewer](screenshots/redis.png)
 
+## AI assistant (bring your own key)
+
+Click the ✨ button in the sidebar header to open the AI assistant. First, add an
+OpenAI or Anthropic API key in **Settings → AI Assistant** — your key is
+encrypted and stored locally, and only the database **schema** (table and column
+names) is sent to the provider, never your data.
+
+![AI settings](screenshots/ai-settings.png)
+
+Then ask in plain English; the assistant streams back a query for the open
+database's dialect. Review it, then **Open in query tab** to run it (the usual
+destructive-statement guard still applies) or **Copy** it. Nothing runs
+automatically.
+
+![AI assistant panel](screenshots/ai-panel.png)
+
 ## Command palette & shortcuts
 
 Press **⌘/Ctrl + K** to open the command palette — jump to any saved connection,

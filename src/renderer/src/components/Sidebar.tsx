@@ -1,24 +1,31 @@
 import { useState } from 'react'
-import { Plus, Pencil, Trash2, Settings, Database as DatabaseIcon } from 'lucide-react'
+import { Plus, Pencil, Trash2, Settings, Sparkles, Database as DatabaseIcon } from 'lucide-react'
 import type { ConnectionConfig } from '@shared/types'
 import { KIND_META } from '@renderer/lib/kinds'
 import { useConnections } from '@renderer/store/connections'
 import { useWorkspace } from '@renderer/store/workspace'
 import { useSettings } from '@renderer/store/settings'
+import { useAi } from '@renderer/store/ai'
 import { cn } from '@renderer/lib/cn'
 import { darken, contrastText } from '@renderer/lib/color'
 import { Button } from './ui/Button'
 import { IconButton } from './ui/IconButton'
 import { NoiseBackground } from './ui/NoiseBackground'
-import { SettingsModal } from './SettingsModal'
 import { ConfirmDialog } from './ui/ConfirmDialog'
 
 interface SidebarProps {
   onNew: () => void
   onEdit: (config: ConnectionConfig) => void
+  onOpenSettings: (tab?: 'appearance' | 'ai') => void
+  onOpenAi: () => void
 }
 
-export function Sidebar({ onNew, onEdit }: SidebarProps): React.JSX.Element {
+export function Sidebar({
+  onNew,
+  onEdit,
+  onOpenSettings,
+  onOpenAi
+}: SidebarProps): React.JSX.Element {
   const connections = useConnections((s) => s.connections)
   const remove = useConnections((s) => s.remove)
   const sessions = useWorkspace((s) => s.sessions)
@@ -26,8 +33,10 @@ export function Sidebar({ onNew, onEdit }: SidebarProps): React.JSX.Element {
   const openConnection = useWorkspace((s) => s.openConnection)
   const closeConnection = useWorkspace((s) => s.closeConnection)
   const sidebarBg = useSettings((s) => s.settings.sidebar)
-  const [settingsOpen, setSettingsOpen] = useState(false)
+  const aiConfigured = useAi((s) => s.configured)
   const [deleteTarget, setDeleteTarget] = useState<ConnectionConfig | null>(null)
+
+  const onAiClick = (): void => (aiConfigured ? onOpenAi() : onOpenSettings('ai'))
 
   // When a custom sidebar background is set, make elements legible over it:
   // the selected row uses a darker variant of the background at 50% alpha (with
@@ -56,6 +65,15 @@ export function Sidebar({ onNew, onEdit }: SidebarProps): React.JSX.Element {
           >
             DataDock
           </span>
+          <div className="flex-1" />
+          <IconButton
+            label="AI assistant"
+            onClick={onAiClick}
+            className="text-accent hover:bg-accent-soft hover:text-accent"
+            style={fg ? { color: fg } : undefined}
+          >
+            <Sparkles size={16} />
+          </IconButton>
         </header>
 
         <div className="mt-1 flex-1 overflow-y-auto px-2 pb-3">
@@ -166,14 +184,12 @@ export function Sidebar({ onNew, onEdit }: SidebarProps): React.JSX.Element {
             label="Settings"
             className="h-9 w-9 shrink-0"
             style={fg ? { color: fgSoft } : undefined}
-            onClick={() => setSettingsOpen(true)}
+            onClick={() => onOpenSettings('appearance')}
           >
             <Settings size={16} />
           </IconButton>
         </div>
       </div>
-
-      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
       <ConfirmDialog
         open={deleteTarget !== null}

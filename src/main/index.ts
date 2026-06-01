@@ -7,6 +7,7 @@ import { registerStoreIpc } from './store'
 import { registerHistoryIpc } from './history'
 import { registerSavedQueriesIpc } from './saved-queries'
 import { registerSettingsIpc } from './settings'
+import { registerAiIpc } from './ai/ipc'
 import { registerHapticsIpc } from './haptics'
 import { registerMenu } from './menu'
 import { connectionManager } from './db/manager'
@@ -73,6 +74,7 @@ app.whenReady().then(() => {
   registerHistoryIpc()
   registerSavedQueriesIpc()
   registerSettingsIpc()
+  registerAiIpc()
   registerHapticsIpc()
   registerMenu()
 

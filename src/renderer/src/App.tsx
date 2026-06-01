@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { ConnectionConfig } from '@shared/types'
 import { useConnections } from './store/connections'
 import { useSettings } from './store/settings'
+import { useAi } from './store/ai'
 import { useWorkspace } from './store/workspace'
 import { Sidebar } from './components/Sidebar'
 import { Workspace } from './components/Workspace'
@@ -9,12 +10,15 @@ import { ConnectionForm } from './components/ConnectionForm'
 import { ImportSqlModal } from './components/ImportSqlModal'
 import { DumpModal } from './components/DumpModal'
 import { CommandPalette } from './components/CommandPalette'
+import { SettingsModal } from './components/SettingsModal'
+import { AiPanel } from './components/ai/AiPanel'
 import { ToastViewport } from './components/ui/ToastViewport'
 import { TooltipProvider } from './components/ui/Tooltip'
 
 function App(): React.JSX.Element {
   const load = useConnections((s) => s.load)
   const loadSettings = useSettings((s) => s.load)
+  const loadAi = useAi((s) => s.load)
   const themeMode = useSettings((s) => s.settings.themeMode)
   const setResolvedTheme = useSettings((s) => s.setResolvedTheme)
   const activeSessionId = useWorkspace((s) => s.activeSessionId)
@@ -24,11 +28,20 @@ function App(): React.JSX.Element {
   const [importOpen, setImportOpen] = useState(false)
   const [dumpOpen, setDumpOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settingsTab, setSettingsTab] = useState<'appearance' | 'ai'>('appearance')
+  const [aiOpen, setAiOpen] = useState(false)
 
   useEffect(() => {
     void load()
     void loadSettings()
-  }, [load, loadSettings])
+    void loadAi()
+  }, [load, loadSettings, loadAi])
+
+  const openSettings = (tab: 'appearance' | 'ai' = 'appearance'): void => {
+    setSettingsTab(tab)
+    setSettingsOpen(true)
+  }
 
   // Apply the resolved color theme to <html>, sync the native window
   // background, and expose it for theme-aware components. Follow the OS for
@@ -127,7 +140,12 @@ function App(): React.JSX.Element {
   return (
     <TooltipProvider delayDuration={400} skipDelayDuration={200}>
       <div className="flex h-screen w-screen overflow-hidden bg-bg text-text">
-        <Sidebar onNew={openNew} onEdit={openEdit} />
+        <Sidebar
+          onNew={openNew}
+          onEdit={openEdit}
+          onOpenSettings={openSettings}
+          onOpenAi={() => setAiOpen(true)}
+        />
         <main className="min-w-0 flex-1">
           <Workspace />
         </main>
@@ -148,6 +166,19 @@ function App(): React.JSX.Element {
             supportsCreateDatabase={activeKind === 'mysql' || activeKind === 'postgres'}
           />
         )}
+        <SettingsModal
+          open={settingsOpen}
+          initialTab={settingsTab}
+          onClose={() => setSettingsOpen(false)}
+        />
+        <AiPanel
+          open={aiOpen}
+          onClose={() => setAiOpen(false)}
+          onConfigure={() => {
+            setAiOpen(false)
+            openSettings('ai')
+          }}
+        />
       </div>
       <ToastViewport />
     </TooltipProvider>

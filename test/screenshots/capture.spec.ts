@@ -110,6 +110,35 @@ test('capture documentation screenshots', async () => {
   await expect(page.getByText('admin')).toBeVisible()
   await shot('redis')
 
+  // 10. AI settings tab (unconfigured → the AI button opens Settings on the AI tab).
+  await page.getByRole('button', { name: 'AI assistant' }).click()
+  await expect(page.getByText('Bring your own API key', { exact: false })).toBeVisible()
+  await shot('ai-settings')
+  await page.keyboard.press('Escape')
+
+  // 11. AI chat panel — configure a placeholder key so the panel opens, then reload.
+  await page.evaluate(async () => {
+    const api = (
+      window as unknown as {
+        api: {
+          ai: {
+            setKey(p: string, k: string): Promise<void>
+            setConfig(c: { provider: string; model: string }): Promise<void>
+          }
+        }
+      }
+    ).api
+    await api.ai.setKey('openai', 'sk-placeholder-for-screenshot')
+    await api.ai.setConfig({ provider: 'openai', model: 'gpt-4o-mini' })
+  })
+  await page.reload()
+  await page.waitForLoadState('domcontentloaded')
+  await page.getByText('Test Postgres').click()
+  await page.getByRole('button', { name: 'AI assistant' }).click()
+  await expect(page.getByText('plain English', { exact: false })).toBeVisible()
+  await page.waitForTimeout(400) // let the panel finish sliding in
+  await shot('ai-panel')
+
   await app.close()
   rmSync(userData, { recursive: true, force: true })
 })

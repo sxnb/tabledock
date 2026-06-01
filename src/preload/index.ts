@@ -1,6 +1,9 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type {
+  AiChatRequest,
+  AiConfig,
+  AiProvider,
   AppSettings,
   ConnectionConfig,
   CreateDumpParams,
@@ -232,6 +235,29 @@ const api: DataDockApi = {
   settings: {
     get: (): Promise<AppSettings> => invoke('settings:get'),
     set: (settings: AppSettings): Promise<void> => invoke('settings:set', settings)
+  },
+  ai: {
+    getConfig: (): Promise<{ provider: AiProvider; model: string; hasKey: boolean }> =>
+      invoke('ai:getConfig'),
+    setConfig: (config: AiConfig): Promise<void> => invoke('ai:setConfig', config),
+    setKey: (provider: AiProvider, key: string): Promise<void> =>
+      invoke('ai:setKey', provider, key),
+    hasKey: (provider: AiProvider): Promise<boolean> => invoke('ai:hasKey', provider),
+    chat: async (
+      requestId: string,
+      request: AiChatRequest,
+      onDelta: (text: string) => void
+    ): Promise<string> => {
+      const channel = `ai:chunk:${requestId}`
+      const handler = (_e: unknown, delta: string): void => onDelta(delta)
+      ipcRenderer.on(channel, handler)
+      try {
+        return await invoke<string>('ai:chat', requestId, request)
+      } finally {
+        ipcRenderer.removeListener(channel, handler)
+      }
+    },
+    cancel: (requestId: string): void => ipcRenderer.send('ai:cancel', requestId)
   },
   haptics: {
     tap: (): void => ipcRenderer.send('haptics:tap')
