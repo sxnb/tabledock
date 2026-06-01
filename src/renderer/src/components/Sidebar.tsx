@@ -11,6 +11,7 @@ import { Button } from './ui/Button'
 import { IconButton } from './ui/IconButton'
 import { NoiseBackground } from './ui/NoiseBackground'
 import { SettingsModal } from './SettingsModal'
+import { ConfirmDialog } from './ui/ConfirmDialog'
 
 interface SidebarProps {
   onNew: () => void
@@ -26,6 +27,7 @@ export function Sidebar({ onNew, onEdit }: SidebarProps): React.JSX.Element {
   const closeConnection = useWorkspace((s) => s.closeConnection)
   const sidebarBg = useSettings((s) => s.settings.sidebar)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<ConnectionConfig | null>(null)
 
   // When a custom sidebar background is set, make elements legible over it:
   // the selected row uses a darker variant of the background at 50% alpha (with
@@ -142,7 +144,7 @@ export function Sidebar({ onNew, onEdit }: SidebarProps): React.JSX.Element {
                         style={fg ? { color: fgSoft } : undefined}
                         onMouseDown={(e) => {
                           e.stopPropagation()
-                          void onDelete(config)
+                          setDeleteTarget(config)
                         }}
                       >
                         <Trash2 size={12} />
@@ -172,6 +174,23 @@ export function Sidebar({ onNew, onEdit }: SidebarProps): React.JSX.Element {
       </div>
 
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Delete connection?"
+        description={
+          deleteTarget
+            ? `This removes the saved connection "${deleteTarget.name}". This cannot be undone.`
+            : ''
+        }
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={() => {
+          if (deleteTarget) void onDelete(deleteTarget)
+          setDeleteTarget(null)
+        }}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </aside>
   )
 }
