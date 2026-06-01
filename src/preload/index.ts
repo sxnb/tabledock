@@ -10,8 +10,10 @@ import type {
   GetRowsOptions,
   IpcResult,
   MenuContext,
+  MongoCollectionStats,
   MongoFindOptions,
   MongoFindResult,
+  MongoIndexInfo,
   NewColumnSpec,
   OpenFileOptions,
   SaveTextOptions,
@@ -121,6 +123,27 @@ const api: DataDockApi = {
       pipeline: string
     ): Promise<MongoFindResult> =>
       invoke('mongo:aggregate', sessionId, database, collection, pipeline),
+    indexes: (sessionId: string, database: string, collection: string): Promise<MongoIndexInfo[]> =>
+      invoke('mongo:indexes', sessionId, database, collection),
+    stats: (
+      sessionId: string,
+      database: string,
+      collection: string
+    ): Promise<MongoCollectionStats> => invoke('mongo:stats', sessionId, database, collection),
+    createIndex: (
+      sessionId: string,
+      database: string,
+      collection: string,
+      keysJson: string,
+      options: { unique?: boolean; name?: string }
+    ): Promise<void> =>
+      invoke('mongo:createIndex', sessionId, database, collection, keysJson, options),
+    dropIndex: (
+      sessionId: string,
+      database: string,
+      collection: string,
+      name: string
+    ): Promise<void> => invoke('mongo:dropIndex', sessionId, database, collection, name),
     insert: (
       sessionId: string,
       database: string,

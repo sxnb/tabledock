@@ -5,8 +5,10 @@ import type {
   RedisScanResult,
   RedisValue,
   RedisValuePage,
+  MongoCollectionStats,
   MongoFindOptions,
   MongoFindResult,
+  MongoIndexInfo,
   RowsResult,
   NewColumnSpec,
   SchemaGraph,
@@ -73,6 +75,15 @@ export interface MongoDriverApi {
   listCollections(database: string): Promise<string[]>
   find(database: string, collection: string, opts: MongoFindOptions): Promise<MongoFindResult>
   aggregate(database: string, collection: string, pipeline: string): Promise<MongoFindResult>
+  listIndexes(database: string, collection: string): Promise<MongoIndexInfo[]>
+  createIndex(
+    database: string,
+    collection: string,
+    keysJson: string,
+    options: { unique?: boolean; name?: string }
+  ): Promise<void>
+  dropIndex(database: string, collection: string, name: string): Promise<void>
+  collectionStats(database: string, collection: string): Promise<MongoCollectionStats>
   insertDocument(database: string, collection: string, json: string): Promise<void>
   updateDocument(database: string, collection: string, id: string, json: string): Promise<void>
   deleteDocument(database: string, collection: string, id: string): Promise<void>

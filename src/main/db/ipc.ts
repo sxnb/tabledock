@@ -201,6 +201,32 @@ export function registerDbIpc(): void {
     (sessionId: string, database: string, collection: string, pipeline: string) =>
       mongo(sessionId).aggregate(database, collection, pipeline)
   )
+  handle('mongo:indexes', (sessionId: string, database: string, collection: string) =>
+    mongo(sessionId).listIndexes(database, collection)
+  )
+  handle('mongo:stats', (sessionId: string, database: string, collection: string) =>
+    mongo(sessionId).collectionStats(database, collection)
+  )
+  handle(
+    'mongo:createIndex',
+    (
+      sessionId: string,
+      database: string,
+      collection: string,
+      keysJson: string,
+      options: { unique?: boolean; name?: string }
+    ) => {
+      assertWritable(sessionId)
+      return mongo(sessionId).createIndex(database, collection, keysJson, options)
+    }
+  )
+  handle(
+    'mongo:dropIndex',
+    (sessionId: string, database: string, collection: string, name: string) => {
+      assertWritable(sessionId)
+      return mongo(sessionId).dropIndex(database, collection, name)
+    }
+  )
   handle(
     'mongo:insert',
     (sessionId: string, database: string, collection: string, json: string) => {

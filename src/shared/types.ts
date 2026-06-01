@@ -313,6 +313,22 @@ export interface MongoFindResult {
   pageSize: number
 }
 
+export interface MongoIndexInfo {
+  name: string
+  /** Human-readable key spec, e.g. 'field: 1, other: -1'. */
+  keys: string
+  unique: boolean
+}
+
+export interface MongoCollectionStats {
+  count: number
+  /** Total storage size in bytes. */
+  storageSize: number
+  /** Average document size in bytes. */
+  avgObjSize: number
+  indexCount: number
+}
+
 /** Envelope returned across IPC so the renderer can handle errors uniformly. */
 export type IpcResult<T> = { ok: true; data: T } | { ok: false; error: string }
 
@@ -373,6 +389,16 @@ export interface DataDockApi {
       collection: string,
       pipeline: string
     ): Promise<MongoFindResult>
+    indexes(sessionId: string, database: string, collection: string): Promise<MongoIndexInfo[]>
+    stats(sessionId: string, database: string, collection: string): Promise<MongoCollectionStats>
+    createIndex(
+      sessionId: string,
+      database: string,
+      collection: string,
+      keysJson: string,
+      options: { unique?: boolean; name?: string }
+    ): Promise<void>
+    dropIndex(sessionId: string, database: string, collection: string, name: string): Promise<void>
     insert(sessionId: string, database: string, collection: string, json: string): Promise<void>
     update(
       sessionId: string,

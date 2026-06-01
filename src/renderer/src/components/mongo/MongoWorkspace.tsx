@@ -9,17 +9,35 @@ import {
   ChevronRight,
   Boxes
 } from 'lucide-react'
-import type { MongoDocument, MongoFindResult } from '@shared/types'
+import type {
+  MongoCollectionStats,
+  MongoDocument,
+  MongoFindResult,
+  MongoIndexInfo
+} from '@shared/types'
 import type { Session } from '@renderer/store/workspace'
 import { useWorkspace } from '@renderer/store/workspace'
 import { Select } from '@renderer/components/ui/Select'
 import { IconButton } from '@renderer/components/ui/IconButton'
 import { Button } from '@renderer/components/ui/Button'
+import { Input } from '@renderer/components/ui/Input'
+import { Modal } from '@renderer/components/ui/Modal'
+import { Toggle } from '@renderer/components/ui/Toggle'
 import { Spinner } from '@renderer/components/ui/Spinner'
 import { EmptyState } from '@renderer/components/ui/EmptyState'
 import { ConfirmDialog } from '@renderer/components/ui/ConfirmDialog'
+import { toast } from '@renderer/store/toasts'
 import { cn } from '@renderer/lib/cn'
 import { DocumentEditModal } from './DocumentEditModal'
+
+type MongoView = 'find' | 'aggregate' | 'indexes'
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
+}
 
 const PAGE_SIZES = [25, 50, 100]
 
@@ -47,8 +65,12 @@ export function MongoWorkspace({ session }: { session: Session }): React.JSX.Ele
   const [error, setError] = useState<string | null>(null)
   const reqRef = useRef(0)
 
-  const [mode, setMode] = useState<'find' | 'aggregate'>('find')
+  const [mode, setMode] = useState<MongoView>('find')
   const [pipelineDraft, setPipelineDraft] = useState('[\n  \n]')
+  const [stats, setStats] = useState<MongoCollectionStats | null>(null)
+  const [indexes, setIndexes] = useState<MongoIndexInfo[]>([])
+  const [createIndexOpen, setCreateIndexOpen] = useState(false)
+  const [dropIndexName, setDropIndexName] = useState<string | null>(null)
 
   const [addOpen, setAddOpen] = useState(false)
   const [editDoc, setEditDoc] = useState<MongoDocument | null>(null)
@@ -132,6 +154,57 @@ export function MongoWorkspace({ session }: { session: Session }): React.JSX.Ele
     }
   }
 
+  // Load stats + indexes whenever the open collection changes.
+  useEffect(() => {
+    if (!database || !collection) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clear stats/indexes when no collection
+      setStats(null)
+      setIndexes([])
+      return
+    }
+    let cancelled = false
+    void window.api.mongo
+      .stats(sessionId, database, collection)
+      .then((s) => !cancelled && setStats(s))
+      .catch(() => !cancelled && setStats(null))
+    void window.api.mongo
+      .indexes(sessionId, database, collection)
+      .then((i) => !cancelled && setIndexes(i))
+      .catch(() => !cancelled && setIndexes([]))
+    return () => {
+      cancelled = true
+    }
+  }, [sessionId, database, collection])
+
+  const reloadIndexes = async (): Promise<void> => {
+    if (!database || !collection) return
+    setIndexes(await window.api.mongo.indexes(sessionId, database, collection))
+  }
+
+  const createIndex = async (keysJson: string, unique: boolean, name: string): Promise<void> => {
+    if (!database || !collection) return
+    await window.api.mongo.createIndex(sessionId, database, collection, keysJson, {
+      unique,
+      name: name.trim() || undefined
+    })
+    toast.success('Index created')
+    setCreateIndexOpen(false)
+    await reloadIndexes()
+  }
+
+  const confirmDropIndex = async (): Promise<void> => {
+    if (!database || !collection || !dropIndexName) return
+    try {
+      await window.api.mongo.dropIndex(sessionId, database, collection, dropIndexName)
+      toast.success(`Dropped index ${dropIndexName}`)
+      await reloadIndexes()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
+    } finally {
+      setDropIndexName(null)
+    }
+  }
+
   const openCollection = (name: string): void => {
     setCollection(name)
     setMode('find')
@@ -146,7 +219,7 @@ export function MongoWorkspace({ session }: { session: Session }): React.JSX.Ele
     setPage(1)
   }
 
-  const switchMode = (next: 'find' | 'aggregate'): void => {
+  const switchMode = (next: MongoView): void => {
     if (next === mode) return
     setMode(next)
     setResult(null)
@@ -236,7 +309,7 @@ export function MongoWorkspace({ session }: { session: Session }): React.JSX.Ele
             <div className="flex items-center gap-2 border-b border-border bg-surface px-3 py-1.5 text-xs text-muted">
               <span className="font-mono text-text">{collection}</span>
               <div className="flex items-center rounded-md border border-border p-0.5">
-                {(['find', 'aggregate'] as const).map((m) => (
+                {(['find', 'aggregate', 'indexes'] as const).map((m) => (
                   <button
                     key={m}
                     onClick={() => switchMode(m)}
@@ -249,16 +322,35 @@ export function MongoWorkspace({ session }: { session: Session }): React.JSX.Ele
                   </button>
                 ))}
               </div>
-              <span className="text-faint">·</span>
-              <span>
-                {total.toLocaleString()} {mode === 'aggregate' ? 'results' : 'docs'}
-              </span>
+              {mode !== 'indexes' && (
+                <>
+                  <span className="text-faint">·</span>
+                  <span>
+                    {total.toLocaleString()} {mode === 'aggregate' ? 'results' : 'docs'}
+                  </span>
+                </>
+              )}
               {loading && <Spinner size={13} />}
+              {stats && (
+                <div className="flex items-center gap-1.5 text-[11px] text-faint">
+                  <Chip>{formatBytes(stats.storageSize)}</Chip>
+                  {stats.avgObjSize > 0 && <Chip>~{formatBytes(stats.avgObjSize)}/doc</Chip>}
+                  <Chip>
+                    {stats.indexCount} {stats.indexCount === 1 ? 'index' : 'indexes'}
+                  </Chip>
+                </div>
+              )}
               <div className="flex-1" />
               {mode === 'find' && !readOnly && (
                 <Button size="sm" variant="secondary" onClick={() => setAddOpen(true)}>
                   <Plus size={13} />
                   Add document
+                </Button>
+              )}
+              {mode === 'indexes' && !readOnly && (
+                <Button size="sm" variant="secondary" onClick={() => setCreateIndexOpen(true)}>
+                  <Plus size={13} />
+                  Create index
                 </Button>
               )}
               {mode === 'find' && (
@@ -298,13 +390,19 @@ export function MongoWorkspace({ session }: { session: Session }): React.JSX.Ele
               )}
               <IconButton
                 label="Refresh"
-                onClick={() => void (mode === 'aggregate' ? runAggregate() : load())}
+                onClick={() =>
+                  void (mode === 'aggregate'
+                    ? runAggregate()
+                    : mode === 'indexes'
+                      ? reloadIndexes()
+                      : load())
+                }
               >
                 <RefreshCw size={13} />
               </IconButton>
             </div>
 
-            {mode === 'aggregate' ? (
+            {mode === 'aggregate' && (
               <div className="flex flex-col gap-1.5 border-b border-border bg-surface px-3 py-1.5">
                 <textarea
                   value={pipelineDraft}
@@ -324,7 +422,9 @@ export function MongoWorkspace({ session }: { session: Session }): React.JSX.Ele
                   </Button>
                 </div>
               </div>
-            ) : (
+            )}
+
+            {mode === 'find' && (
               <form
                 className="flex flex-col gap-1.5 border-b border-border bg-surface px-3 py-1.5"
                 onSubmit={(e) => {
@@ -362,6 +462,41 @@ export function MongoWorkspace({ session }: { session: Session }): React.JSX.Ele
             <div className="min-h-0 flex-1 overflow-auto p-3">
               {error ? (
                 <div className="flex items-start gap-2 font-mono text-xs text-danger">{error}</div>
+              ) : mode === 'indexes' ? (
+                <table className="w-full border-collapse text-xs">
+                  <thead>
+                    <tr className="text-left text-faint">
+                      <th className="px-2 py-1.5 font-medium">Name</th>
+                      <th className="px-2 py-1.5 font-medium">Keys</th>
+                      <th className="px-2 py-1.5 font-medium">Unique</th>
+                      {!readOnly && <th className="w-8" />}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {indexes.map((idx) => (
+                      <tr key={idx.name} className="group border-t border-border/60">
+                        <td className="px-2 py-1.5 align-top font-mono text-text">{idx.name}</td>
+                        <td className="px-2 py-1.5 align-top font-mono text-muted">{idx.keys}</td>
+                        <td className="px-2 py-1.5 align-top text-muted">
+                          {idx.unique ? 'YES' : 'NO'}
+                        </td>
+                        {!readOnly && (
+                          <td className="px-2 py-1.5 text-right align-top">
+                            {idx.name !== '_id_' && (
+                              <IconButton
+                                label={`Drop index ${idx.name}`}
+                                className="opacity-0 group-hover:opacity-100 hover:text-danger"
+                                onClick={() => setDropIndexName(idx.name)}
+                              >
+                                <Trash2 size={13} />
+                              </IconButton>
+                            )}
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               ) : result && result.documents.length === 0 ? (
                 <div className="flex h-full items-center justify-center text-xs text-muted">
                   No documents
@@ -445,6 +580,84 @@ export function MongoWorkspace({ session }: { session: Session }): React.JSX.Ele
         }}
         onCancel={() => setDeleteDoc(null)}
       />
+
+      {createIndexOpen && (
+        <CreateIndexModal onClose={() => setCreateIndexOpen(false)} onCreate={createIndex} />
+      )}
+
+      <ConfirmDialog
+        open={dropIndexName !== null}
+        title="Drop index?"
+        description={`This permanently drops the index "${dropIndexName}".`}
+        confirmLabel="Drop index"
+        variant="danger"
+        onConfirm={() => void confirmDropIndex()}
+        onCancel={() => setDropIndexName(null)}
+      />
     </div>
+  )
+}
+
+function Chip({ children }: { children: React.ReactNode }): React.JSX.Element {
+  return <span className="rounded bg-surface-2 px-1.5 py-0.5">{children}</span>
+}
+
+function CreateIndexModal({
+  onClose,
+  onCreate
+}: {
+  onClose: () => void
+  onCreate: (keysJson: string, unique: boolean, name: string) => Promise<void>
+}): React.JSX.Element {
+  const [keys, setKeys] = useState('{ "field": 1 }')
+  const [unique, setUnique] = useState(false)
+  const [name, setName] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const submit = async (): Promise<void> => {
+    if (!keys.trim()) return
+    setSaving(true)
+    try {
+      await onCreate(keys, unique, name)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal
+      open
+      title="Create index"
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="secondary" size="sm" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button variant="primary" size="sm" onClick={submit} disabled={!keys.trim() || saving}>
+            Create
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-3">
+        <Input
+          label="Keys (Extended JSON)"
+          autoFocus
+          value={keys}
+          onChange={(e) => setKeys(e.target.value)}
+          placeholder='{ "field": 1, "other": -1 }'
+        />
+        <Input
+          label="Name (optional)"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="auto-generated if blank"
+        />
+        <Toggle id="create-index-unique" label="Unique" checked={unique} onChange={setUnique} />
+      </div>
+    </Modal>
   )
 }

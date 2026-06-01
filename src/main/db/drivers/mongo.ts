@@ -1,6 +1,13 @@
 import { MongoClient, type MongoClientOptions } from 'mongodb'
 import { EJSON } from 'bson'
-import type { ConnectionConfig, MongoDriverApi, MongoFindOptions, MongoFindResult } from '../types'
+import type {
+  ConnectionConfig,
+  MongoCollectionStats,
+  MongoDriverApi,
+  MongoFindOptions,
+  MongoFindResult,
+  MongoIndexInfo
+} from '../types'
 
 const SYSTEM_DATABASES = new Set(['admin', 'local', 'config'])
 const AGGREGATE_LIMIT = 500
@@ -108,6 +115,50 @@ export class MongoDriver implements MongoDriverApi {
       total: docs.length,
       page: 1,
       pageSize: docs.length
+    }
+  }
+
+  async listIndexes(database: string, collection: string): Promise<MongoIndexInfo[]> {
+    const idx = await this.handle.db(database).collection(collection).indexes()
+    return idx.map((i) => {
+      const key = (i.key ?? {}) as Record<string, unknown>
+      return {
+        name: String(i.name),
+        keys: Object.entries(key)
+          .map(([k, v]) => `${k}: ${v}`)
+          .join(', '),
+        unique: Boolean(i.unique)
+      }
+    })
+  }
+
+  async createIndex(
+    database: string,
+    collection: string,
+    keysJson: string,
+    options: { unique?: boolean; name?: string }
+  ): Promise<void> {
+    const keys = EJSON.parse(keysJson) as Record<string, never>
+    await this.handle
+      .db(database)
+      .collection(collection)
+      .createIndex(keys, { unique: options.unique, name: options.name || undefined })
+  }
+
+  async dropIndex(database: string, collection: string, name: string): Promise<void> {
+    await this.handle.db(database).collection(collection).dropIndex(name)
+  }
+
+  async collectionStats(database: string, collection: string): Promise<MongoCollectionStats> {
+    const stats = (await this.handle.db(database).command({ collStats: collection })) as Record<
+      string,
+      number
+    >
+    return {
+      count: stats.count ?? 0,
+      storageSize: stats.storageSize ?? 0,
+      avgObjSize: stats.avgObjSize ?? 0,
+      indexCount: stats.nindexes ?? 0
     }
   }
 
