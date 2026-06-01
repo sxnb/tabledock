@@ -52,6 +52,10 @@ app.whenReady().then(() => {
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.datadock')
 
+  // macOS shows the default Electron icon in the dock during development
+  // (the packaged .icns only applies to a built app); set it explicitly.
+  if (process.platform === 'darwin') app.dock?.setIcon(icon)
+
   // Default open or close DevTools by F12 in development.
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
