@@ -10,6 +10,7 @@ import { cn } from '@renderer/lib/cn'
 import { darken, contrastText } from '@renderer/lib/color'
 import { Button } from './ui/Button'
 import { IconButton } from './ui/IconButton'
+import { Tooltip } from './ui/Tooltip'
 import { NoiseBackground } from './ui/NoiseBackground'
 import { ConfirmDialog } from './ui/ConfirmDialog'
 
@@ -66,14 +67,20 @@ export function Sidebar({
             DataDock
           </span>
           <div className="flex-1" />
-          <IconButton
-            label="AI assistant"
-            onClick={onAiClick}
-            className="text-accent hover:bg-accent-soft hover:text-accent"
-            style={fg ? { color: fg } : undefined}
-          >
-            <Sparkles size={16} />
-          </IconButton>
+          <Tooltip label="AI assistant">
+            <button
+              aria-label="AI assistant"
+              onClick={onAiClick}
+              className={cn(
+                'dd-blob grid h-7 w-7 place-items-center bg-gradient-to-br from-accent to-blue text-white',
+                'shadow-[0_0_10px_rgba(139,123,255,0.45)] transition-shadow',
+                'hover:shadow-[0_0_16px_rgba(139,123,255,0.7)]',
+                'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/60'
+              )}
+            >
+              <Sparkles size={15} />
+            </button>
+          </Tooltip>
         </header>
 
         <div className="mt-1 flex-1 overflow-y-auto px-2 pb-3">

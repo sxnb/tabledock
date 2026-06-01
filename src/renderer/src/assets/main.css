@@ -119,6 +119,27 @@
   animation: dd-toast-in 0.15s ease-out;
 }
 
+/* AI button: a soft squircle that morphs like a blob on hover. */
+@keyframes dd-blob {
+  0%,
+  100% {
+    border-radius: 42% 58% 60% 40% / 45% 45% 55% 55%;
+  }
+  33% {
+    border-radius: 62% 38% 45% 55% / 55% 62% 38% 45%;
+  }
+  66% {
+    border-radius: 40% 60% 58% 42% / 60% 38% 62% 40%;
+  }
+}
+.dd-blob {
+  border-radius: 35%;
+  transition: border-radius 0.3s ease;
+}
+.dd-blob:hover {
+  animation: dd-blob 4s ease-in-out infinite;
+}
+
 /* ── React Flow dark theming (relation diagram) ─────────────────────────── */
 /* Theme via xyflow's own CSS variables so they win regardless of the order in
    which React Flow's stylesheet is injected relative to this file. */

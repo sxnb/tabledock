@@ -33,6 +33,7 @@ export function AiPanel({ open, onClose, onConfigure }: AiPanelProps): React.JSX
   const reqIdRef = useRef<string | null>(null)
   const schemaCache = useRef<Record<string, string>>({})
   const scrollRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
 
   const relational = active?.status === 'connected' && RELATIONAL.includes(active.config.kind)
   const backendId = active?.sessionId ?? null
@@ -40,6 +41,15 @@ export function AiPanel({ open, onClose, onConfigure }: AiPanelProps): React.JSX
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight })
   }, [messages])
+
+  // Auto-grow the input with its content, up to 5 rows (then it scrolls).
+  // 20px line-height + 8px vertical padding → 1 row = 28px, 5 rows = 108px.
+  useEffect(() => {
+    const el = inputRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(el.scrollHeight, 108)}px`
+  }, [input, open])
 
   const loadSchema = async (): Promise<string> => {
     const sid = backendId as string
@@ -166,12 +176,13 @@ export function AiPanel({ open, onClose, onConfigure }: AiPanelProps): React.JSX
             <div className="border-t border-border p-2.5">
               <div className="flex items-end gap-2 rounded-lg border border-border bg-surface-2 px-2.5 py-2 focus-within:border-accent">
                 <textarea
+                  ref={inputRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={onKeyDown}
                   rows={1}
                   placeholder={`Ask ${provider}…`}
-                  className="max-h-32 min-h-0 flex-1 resize-none bg-transparent text-sm text-text placeholder:text-faint focus:outline-none"
+                  className="flex-1 resize-none overflow-y-auto bg-transparent py-1 text-sm leading-5 text-text placeholder:text-faint focus:outline-none"
                 />
                 {busy ? (
                   <IconButton label="Stop" onClick={stop}>
