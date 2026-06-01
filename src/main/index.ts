@@ -11,6 +11,12 @@ import { registerHapticsIpc } from './haptics'
 import { registerMenu } from './menu'
 import { connectionManager } from './db/manager'
 
+// Test isolation: redirect persisted data (connections, history, settings) to a
+// throwaway directory so E2E runs start clean and never touch real app data.
+if (process.env.DATADOCK_USER_DATA) {
+  app.setPath('userData', process.env.DATADOCK_USER_DATA)
+}
+
 function createWindow(): void {
   // Create the browser window.
   const mainWindow = new BrowserWindow({

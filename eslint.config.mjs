@@ -28,5 +28,19 @@ export default defineConfig(
       ...eslintPluginReactRefresh.configs.vite.rules
     }
   },
+  {
+    // Playwright fixtures use the `{}` empty-pattern + `use` conventions, which
+    // trip the React Hooks and empty-pattern rules in non-React test code.
+    files: ['test/**/*.ts'],
+    rules: {
+      'react-hooks/rules-of-hooks': 'off',
+      'no-empty-pattern': 'off'
+    }
+  },
+  {
+    // MongoDB seed scripts run in the mongosh shell, where `db` is a global.
+    files: ['test/seed/*.js'],
+    languageOptions: { globals: { db: 'readonly' } }
+  },
   eslintConfigPrettier
 )

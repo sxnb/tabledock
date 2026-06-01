@@ -1,0 +1,74 @@
+# Ephemeral databases for DataDock's integration + E2E tests.
+# Non-standard host ports so this never collides with a local DB install.
+#   bring up:  npm run test:db:up
+#   tear down: npm run test:db:down
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: datadock
+      POSTGRES_PASSWORD: datadock
+      POSTGRES_DB: datadock_test
+    ports:
+      - '55432:5432'
+    volumes:
+      - ./seed/postgres.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U datadock -d datadock_test']
+      interval: 3s
+      timeout: 5s
+      retries: 20
+
+  mysql:
+    image: mysql:8
+    environment:
+      MYSQL_ROOT_PASSWORD: datadock
+      MYSQL_DATABASE: datadock_test
+    ports:
+      - '53306:3306'
+    volumes:
+      - ./seed/mysql.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'mysqladmin ping -h 127.0.0.1 -uroot -pdatadock --silent']
+      interval: 3s
+      timeout: 5s
+      retries: 30
+
+  mariadb:
+    image: mariadb:11
+    environment:
+      MARIADB_ROOT_PASSWORD: datadock
+      MARIADB_DATABASE: datadock_test
+    ports:
+      - '53307:3306'
+    volumes:
+      - ./seed/mysql.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'mariadb-admin ping -h 127.0.0.1 -uroot -pdatadock --silent']
+      interval: 3s
+      timeout: 5s
+      retries: 30
+
+  mongo:
+    image: mongo:7
+    environment:
+      MONGO_INITDB_DATABASE: datadock_test
+    ports:
+      - '57017:27017'
+    volumes:
+      - ./seed/mongo.js:/docker-entrypoint-initdb.d/init.js:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'mongosh --quiet --eval "db.adminCommand(''ping'').ok" | grep -q 1']
+      interval: 3s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7
+    ports:
+      - '56379:6379'
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli ping | grep -q PONG']
+      interval: 3s
+      timeout: 5s
+      retries: 20

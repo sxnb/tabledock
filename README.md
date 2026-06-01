@@ -165,6 +165,22 @@ npm run lint          # ESLint
 npm run format        # Prettier
 ```
 
+### Testing
+
+Tests run against **real databases in Docker** (no mocks). With Docker running:
+
+```bash
+npm run test:db:up    # start Postgres, MySQL, MariaDB, MongoDB, Redis (seeded)
+npm run test:int      # driver integration suite (Vitest) — exercises each driver
+npm run test:e2e      # build + Playwright E2E (launches the app, clicks around)
+npm run test:db:down  # stop containers and remove volumes
+# or: npm run test:all  (db up → int → e2e)
+```
+
+- **Integration** (`test/integration/`, Vitest): imports the driver classes directly and runs the full contract — browse, pagination/sort/filter, structure/indexes, CRUD, and schema/collection editing — against the live containers.
+- **E2E** (`test/e2e/`, Playwright + Electron): launches the built app against a throwaway profile and drives the UI (welcome/command palette, the connection form, and browsing seeded Postgres/MongoDB/Redis).
+- Databases run on non-standard host ports (see `test/docker-compose.yml`), overridable via env. SQLite needs no container; SQL Server is not yet included.
+
 ---
 
 ## 🗂️ Project Structure
