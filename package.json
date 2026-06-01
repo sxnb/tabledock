@@ -23,7 +23,8 @@
     "test:db:down": "docker compose -f test/docker-compose.yml down -v",
     "test:int": "vitest run",
     "test:e2e": "electron-vite build && playwright test",
-    "test:all": "npm run test:db:up && npm run test:int && npm run test:e2e"
+    "test:all": "npm run test:db:up && npm run test:int && npm run test:e2e",
+    "test:ci": "npm run test:db:up && { npm run test:int && npm run test:e2e; ec=$?; npm run test:db:down; exit $ec; }"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",

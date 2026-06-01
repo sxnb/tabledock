@@ -174,7 +174,8 @@ npm run test:db:up    # start Postgres, MySQL, MariaDB, MongoDB, Redis (seeded)
 npm run test:int      # driver integration suite (Vitest) — exercises each driver
 npm run test:e2e      # build + Playwright E2E (launches the app, clicks around)
 npm run test:db:down  # stop containers and remove volumes
-# or: npm run test:all  (db up → int → e2e)
+# or: npm run test:all  (db up → int → e2e; leaves containers up for fast reruns)
+# or: npm run test:ci   (db up → int → e2e → always tear down, even on failure)
 ```
 
 - **Integration** (`test/integration/`, Vitest): imports the driver classes directly and runs the full contract — browse, pagination/sort/filter, structure/indexes, CRUD, and schema/collection editing — against the live containers.
