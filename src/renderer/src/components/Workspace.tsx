@@ -1,4 +1,4 @@
-import { Database, AlertTriangle, RotateCcw, Command, Plus, Table2, Workflow } from 'lucide-react'
+import { Database, AlertTriangle, RotateCcw, Command } from 'lucide-react'
 import { useWorkspace } from '@renderer/store/workspace'
 import { KIND_META } from '@renderer/lib/kinds'
 import { Spinner } from './ui/Spinner'
@@ -49,19 +49,6 @@ function WelcomeScreen(): React.JSX.Element {
             Jump to any connection, table, or action — no clicking required.
           </span>
         </div>
-      </div>
-
-      {/* Quick tips */}
-      <div className="flex max-w-md flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[11px] text-muted">
-        <span className="flex items-center gap-1.5">
-          <Plus size={13} className="text-faint" /> New connection in the sidebar
-        </span>
-        <span className="flex items-center gap-1.5">
-          <Table2 size={13} className="text-faint" /> Browse & edit rows inline
-        </span>
-        <span className="flex items-center gap-1.5">
-          <Workflow size={13} className="text-faint" /> Visualize relations as an ER diagram
-        </span>
       </div>
     </div>
   )
