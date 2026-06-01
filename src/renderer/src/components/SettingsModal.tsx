@@ -2,12 +2,13 @@ import { useEffect, useState } from 'react'
 import { Sun, Moon, Monitor, Sparkles, Palette, CheckCircle2 } from 'lucide-react'
 import type { AiProvider, ThemeMode } from '@shared/types'
 import { useSettings } from '@renderer/store/settings'
-import { useAi, DEFAULT_MODEL } from '@renderer/store/ai'
+import { useAi, DEFAULT_MODEL, MODELS } from '@renderer/store/ai'
 import { toast } from '@renderer/store/toasts'
 import { cn } from '@renderer/lib/cn'
 import { Modal } from './ui/Modal'
 import { Button } from './ui/Button'
 import { Input } from './ui/Input'
+import { Select } from './ui/Select'
 import { Toggle } from './ui/Toggle'
 import { Slider } from './ui/Slider'
 import { ColorPicker } from './ui/ColorPicker'
@@ -271,12 +272,16 @@ function AiTab(): React.JSX.Element {
         </div>
       </section>
 
-      <Input
-        label="Model"
-        value={model}
-        onChange={(e) => setModel(e.target.value)}
-        placeholder={DEFAULT_MODEL[provider]}
-      />
+      <Select label="Model" value={model} onChange={(e) => setModel(e.target.value)}>
+        {/* Keep a previously saved model selectable even if not in the curated list. */}
+        {(MODELS[provider].includes(model) ? MODELS[provider] : [model, ...MODELS[provider]]).map(
+          (m) => (
+            <option key={m} value={m}>
+              {m}
+            </option>
+          )
+        )}
+      </Select>
 
       <div className="flex flex-col gap-1.5">
         <span className="flex items-center gap-2 text-xs font-medium text-muted">

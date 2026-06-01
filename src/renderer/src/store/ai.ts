@@ -6,6 +6,12 @@ export const DEFAULT_MODEL: Record<AiProvider, string> = {
   anthropic: 'claude-3-5-sonnet-latest'
 }
 
+/** Selectable models per provider (the default is listed first). */
+export const MODELS: Record<AiProvider, string[]> = {
+  openai: ['gpt-4o-mini', 'gpt-4o', 'gpt-4.1', 'gpt-4.1-mini', 'o4-mini'],
+  anthropic: ['claude-3-5-sonnet-latest', 'claude-3-5-haiku-latest', 'claude-3-7-sonnet-latest']
+}
+
 interface AiState {
   provider: AiProvider
   model: string
