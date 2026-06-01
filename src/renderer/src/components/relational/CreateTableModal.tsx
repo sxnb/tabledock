@@ -65,6 +65,7 @@ export function CreateTableModal({ onClose, onCreate }: CreateTableModalProps): 
   return (
     <Modal
       open
+      size="xl"
       title="Create table"
       onClose={onClose}
       footer={
@@ -135,7 +136,7 @@ function Row({
   onRemove?: () => void
 }): React.JSX.Element {
   const cell =
-    'h-7 rounded-md border border-border bg-surface px-2 text-xs text-text focus:border-accent focus:outline-none'
+    'h-7 w-full min-w-0 rounded-md border border-border bg-surface px-2 text-xs text-text focus:border-accent focus:outline-none'
   return (
     <>
       <input

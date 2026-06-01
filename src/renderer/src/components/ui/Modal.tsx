@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect } from 'react'
 import { X } from 'lucide-react'
 import { IconButton } from './IconButton'
+import { cn } from '@renderer/lib/cn'
 
 interface ModalProps {
   open: boolean
@@ -8,6 +9,14 @@ interface ModalProps {
   onClose: () => void
   children: ReactNode
   footer?: ReactNode
+  /** Maximum width; defaults to 'md'. */
+  size?: 'md' | 'lg' | 'xl'
+}
+
+const MAX_WIDTH: Record<NonNullable<ModalProps['size']>, string> = {
+  md: 'max-w-md',
+  lg: 'max-w-lg',
+  xl: 'max-w-2xl'
 }
 
 export function Modal({
@@ -15,7 +24,8 @@ export function Modal({
   title,
   onClose,
   children,
-  footer
+  footer,
+  size = 'md'
 }: ModalProps): React.JSX.Element | null {
   useEffect(() => {
     if (!open) return
@@ -34,7 +44,10 @@ export function Modal({
       onMouseDown={onClose}
     >
       <div
-        className="w-full max-w-md overflow-hidden rounded-xl border border-border bg-surface shadow-2xl"
+        className={cn(
+          'w-full overflow-hidden rounded-xl border border-border bg-surface shadow-2xl',
+          MAX_WIDTH[size]
+        )}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <header className="flex items-center justify-between border-b border-border px-4 py-3">
