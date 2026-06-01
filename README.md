@@ -34,6 +34,8 @@ Browse, query, edit, and visualize your databases — all from one minimalist wo
 
 ---
 
+> 📖 See the [**User Guide**](docs/guide.md) for a screenshot walkthrough of every feature.
+
 ## ✨ Features
 
 ### 🔌 Connections
