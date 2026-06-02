@@ -145,13 +145,15 @@
   animation: dd-blob 5s ease-in-out infinite;
 }
 
-/* Sidebar footer tint: a dark wash over the (possibly themed) sidebar, but a
-   lighter wash in light mode so the actions strip doesn't look muddy. */
-.dd-sidebar-footer {
-  background-color: rgba(0, 0, 0, 0.2);
+/* Sidebar footer actions over a custom (themed) sidebar background: use the
+   contrast color (black/white via --dd-fg) at rest, but fall back to the normal
+   text color on hover so the text stays legible against the hover background.
+   Unlayered, so it wins over Tailwind's layered color utilities. */
+.dd-sidebar-action {
+  color: var(--dd-fg);
 }
-:root[data-theme='light'] .dd-sidebar-footer {
-  background-color: rgba(255, 255, 255, 0.45);
+.dd-sidebar-action:hover {
+  color: var(--color-text);
 }
 
 /* ── React Flow dark theming (relation diagram) ─────────────────────────── */

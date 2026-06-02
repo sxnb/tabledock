@@ -205,8 +205,8 @@ export function Sidebar({
         <div className="flex items-center gap-2 border-t border-border/70 p-2">
           <Button
             variant="ghost"
-            className="flex-1"
-            style={fg ? { color: fg } : undefined}
+            className={cn('flex-1', fg && 'dd-sidebar-action')}
+            style={fg ? ({ '--dd-fg': fg } as React.CSSProperties) : undefined}
             onClick={onNew}
           >
             <Plus size={14} />
@@ -214,8 +214,8 @@ export function Sidebar({
           </Button>
           <IconButton
             label="Settings"
-            className="h-9 w-9 shrink-0"
-            style={fg ? { color: fg } : undefined}
+            className={cn('h-9 w-9 shrink-0', fg && 'dd-sidebar-action')}
+            style={fg ? ({ '--dd-fg': fg } as React.CSSProperties) : undefined}
             onClick={() => onOpenSettings('appearance')}
           >
             <Settings size={16} />
