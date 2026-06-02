@@ -43,6 +43,12 @@ function App(): React.JSX.Element {
     setSettingsOpen(true)
   }
 
+  // Open the AI chat when a key is configured, otherwise jump to its settings.
+  const openAiAssistant = (): void => {
+    if (useAi.getState().configured) setAiOpen(true)
+    else openSettings('ai')
+  }
+
   // Apply the resolved color theme to <html>, sync the native window
   // background, and expose it for theme-aware components. Follow the OS for
   // 'system'.
@@ -100,6 +106,13 @@ function App(): React.JSX.Element {
       if (key === 'k') {
         e.preventDefault()
         setPaletteOpen((o) => !o)
+      } else if (key === 'j') {
+        e.preventDefault()
+        if (useAi.getState().configured) setAiOpen(true)
+        else {
+          setSettingsTab('ai')
+          setSettingsOpen(true)
+        }
       } else if (key === 't') {
         const { activeSessionId: id, sessions, openQueryTab } = useWorkspace.getState()
         const s = id ? sessions[id] : null
@@ -144,7 +157,7 @@ function App(): React.JSX.Element {
           onNew={openNew}
           onEdit={openEdit}
           onOpenSettings={openSettings}
-          onOpenAi={() => setAiOpen(true)}
+          onOpenAi={openAiAssistant}
         />
         <main className="min-w-0 flex-1">
           <Workspace />
@@ -154,6 +167,7 @@ function App(): React.JSX.Element {
           open={paletteOpen}
           onClose={() => setPaletteOpen(false)}
           onNewConnection={openNew}
+          onOpenAi={openAiAssistant}
         />
         {importOpen && (
           <ImportSqlModal open onClose={() => setImportOpen(false)} onImport={runImport} />

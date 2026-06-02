@@ -1,14 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Database, Table2, Terminal, Plus, Unplug, Search } from 'lucide-react'
+import { Database, Table2, Terminal, Plus, Unplug, Search, Sparkles } from 'lucide-react'
 import type { DriverKind } from '@shared/types'
 import { useConnections } from '@renderer/store/connections'
 import { useWorkspace } from '@renderer/store/workspace'
 import { cn } from '@renderer/lib/cn'
 
+const MOD =
+  typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC')
+    ? '⌘'
+    : 'Ctrl'
+
 interface CommandPaletteProps {
   open: boolean
   onClose: () => void
   onNewConnection: () => void
+  onOpenAi: () => void
 }
 
 interface Command {
@@ -29,7 +35,8 @@ const RELATIONAL: DriverKind[] = ['mysql', 'mariadb', 'postgres', 'mssql', 'sqli
 export function CommandPalette({
   open,
   onClose,
-  onNewConnection
+  onNewConnection,
+  onOpenAi
 }: CommandPaletteProps): React.JSX.Element | null {
   const connections = useConnections((s) => s.connections)
   const openConnection = useWorkspace((s) => s.openConnection)
@@ -81,6 +88,14 @@ export function CommandPalette({
 
   const commands = useMemo<Command[]>(() => {
     const list: Command[] = []
+    list.push({
+      id: 'ai-assistant',
+      label: 'Open AI assistant',
+      hint: `${MOD} J`,
+      group: 'Actions',
+      icon: <Sparkles size={14} />,
+      run: onOpenAi
+    })
     list.push({
       id: 'new-connection',
       label: 'New connection',
@@ -135,6 +150,7 @@ export function CommandPalette({
     tables,
     connections,
     onNewConnection,
+    onOpenAi,
     openQueryTab,
     closeConnection,
     openTableTab,

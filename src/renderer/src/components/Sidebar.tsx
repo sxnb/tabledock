@@ -5,7 +5,6 @@ import { KIND_META } from '@renderer/lib/kinds'
 import { useConnections } from '@renderer/store/connections'
 import { useWorkspace } from '@renderer/store/workspace'
 import { useSettings } from '@renderer/store/settings'
-import { useAi } from '@renderer/store/ai'
 import { cn } from '@renderer/lib/cn'
 import { darken, contrastText } from '@renderer/lib/color'
 import { Button } from './ui/Button'
@@ -35,10 +34,7 @@ export function Sidebar({
   const closeConnection = useWorkspace((s) => s.closeConnection)
   const sidebarBg = useSettings((s) => s.settings.sidebar)
   const showAiButton = useSettings((s) => s.settings.showAiButton ?? true)
-  const aiConfigured = useAi((s) => s.configured)
   const [deleteTarget, setDeleteTarget] = useState<ConnectionConfig | null>(null)
-
-  const onAiClick = (): void => (aiConfigured ? onOpenAi() : onOpenSettings('ai'))
 
   // When a custom sidebar background is set, make elements legible over it:
   // the selected row uses a darker variant of the background at 50% alpha (with
@@ -72,7 +68,7 @@ export function Sidebar({
             <Tooltip label="AI assistant">
               <button
                 aria-label="AI assistant"
-                onClick={onAiClick}
+                onClick={onOpenAi}
                 className={cn(
                   'dd-blob grid h-7 w-7 place-items-center bg-gradient-to-br from-accent to-blue text-white',
                   'shadow-[0_0_10px_rgba(139,123,255,0.45)] transition-shadow',
