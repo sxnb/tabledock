@@ -332,7 +332,7 @@ export function TableDataTab({
               disabled={!meta}
             >
               <Plus size={13} />
-              <span className="hidden @lg:inline">Add row</span>
+              <span className="hidden @3xl:inline">Add row</span>
             </Button>
             <Button
               size="sm"
@@ -342,7 +342,7 @@ export function TableDataTab({
               disabled={!meta}
             >
               <FileUp size={13} />
-              <span className="hidden @lg:inline">Import</span>
+              <span className="hidden @3xl:inline">Import</span>
             </Button>
           </>
         )}

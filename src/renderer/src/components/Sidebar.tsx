@@ -202,15 +202,20 @@ export function Sidebar({
           </ul>
         </div>
 
-        <div className="dd-sidebar-footer flex items-center gap-2 border-t border-border/70 p-2">
-          <Button variant="ghost" className="flex-1" onClick={onNew}>
+        <div className="flex items-center gap-2 border-t border-border/70 p-2">
+          <Button
+            variant="ghost"
+            className="flex-1"
+            style={fg ? { color: fg } : undefined}
+            onClick={onNew}
+          >
             <Plus size={14} />
             New connection
           </Button>
           <IconButton
             label="Settings"
             className="h-9 w-9 shrink-0"
-            style={fg ? { color: fgSoft } : undefined}
+            style={fg ? { color: fg } : undefined}
             onClick={() => onOpenSettings('appearance')}
           >
             <Settings size={16} />
