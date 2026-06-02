@@ -221,18 +221,19 @@ export function RelationalWorkspace({ session }: { session: Session }): React.JS
       <div className="flex w-60 shrink-0 flex-col border-r border-border bg-surface">
         {!isSqlite && (
           <div className="flex items-center gap-2 p-2.5">
-            <Select
-              className="flex-1"
-              value={session.selectedDatabase ?? ''}
-              onChange={(e) => requestDatabaseChange(e.target.value)}
-            >
-              {databases.length === 0 && <option value="">(no databases)</option>}
-              {databases.map((db) => (
-                <option key={db} value={db}>
-                  {db}
-                </option>
-              ))}
-            </Select>
+            <div className="min-w-0 flex-1">
+              <Select
+                value={session.selectedDatabase ?? ''}
+                onChange={(e) => requestDatabaseChange(e.target.value)}
+              >
+                {databases.length === 0 && <option value="">(no databases)</option>}
+                {databases.map((db) => (
+                  <option key={db} value={db}>
+                    {db}
+                  </option>
+                ))}
+              </Select>
+            </div>
             {!readOnly && (
               <IconButton label="New database" onClick={() => setNewDbOpen(true)}>
                 <Plus size={14} />

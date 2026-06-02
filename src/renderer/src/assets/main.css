@@ -119,25 +119,39 @@
   animation: dd-toast-in 0.15s ease-out;
 }
 
-/* AI button: a soft squircle that morphs like a blob on hover. */
+/* AI button: a soft squircle that morphs like a blob on hover. The keyframes
+   start/end at the rest radius (35%) so the morph eases in and out smoothly
+   rather than snapping. */
 @keyframes dd-blob {
   0%,
   100% {
-    border-radius: 42% 58% 60% 40% / 45% 45% 55% 55%;
+    border-radius: 35%;
   }
-  33% {
+  25% {
     border-radius: 62% 38% 45% 55% / 55% 62% 38% 45%;
   }
-  66% {
+  50% {
     border-radius: 40% 60% 58% 42% / 60% 38% 62% 40%;
+  }
+  75% {
+    border-radius: 55% 45% 62% 38% / 42% 58% 45% 55%;
   }
 }
 .dd-blob {
   border-radius: 35%;
-  transition: border-radius 0.3s ease;
+  transition: border-radius 0.4s ease;
 }
 .dd-blob:hover {
-  animation: dd-blob 4s ease-in-out infinite;
+  animation: dd-blob 5s ease-in-out infinite;
+}
+
+/* Sidebar footer tint: a dark wash over the (possibly themed) sidebar, but a
+   lighter wash in light mode so the actions strip doesn't look muddy. */
+.dd-sidebar-footer {
+  background-color: rgba(0, 0, 0, 0.2);
+}
+:root[data-theme='light'] .dd-sidebar-footer {
+  background-color: rgba(255, 255, 255, 0.45);
 }
 
 /* ── React Flow dark theming (relation diagram) ─────────────────────────── */

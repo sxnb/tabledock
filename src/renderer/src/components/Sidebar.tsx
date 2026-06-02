@@ -1,5 +1,13 @@
 import { useState } from 'react'
-import { Plus, Pencil, Trash2, Settings, Sparkles, Database as DatabaseIcon } from 'lucide-react'
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Settings,
+  Sparkles,
+  Unplug,
+  Database as DatabaseIcon
+} from 'lucide-react'
 import type { ConnectionConfig } from '@shared/types'
 import { KIND_META } from '@renderer/lib/kinds'
 import { useConnections } from '@renderer/store/connections'
@@ -151,6 +159,19 @@ export function Sidebar({
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center opacity-0 transition-opacity group-hover:opacity-100">
+                      {session && (
+                        <IconButton
+                          label="Disconnect"
+                          className="h-6 w-6"
+                          style={fg ? { color: fgSoft } : undefined}
+                          onMouseDown={(e) => {
+                            e.stopPropagation()
+                            void closeConnection(config.id)
+                          }}
+                        >
+                          <Unplug size={12} />
+                        </IconButton>
+                      )}
                       <IconButton
                         label="Edit"
                         className="h-6 w-6"
@@ -181,7 +202,7 @@ export function Sidebar({
           </ul>
         </div>
 
-        <div className="flex items-center gap-2 border-t border-border/70 bg-black/20 p-2">
+        <div className="dd-sidebar-footer flex items-center gap-2 border-t border-border/70 p-2">
           <Button variant="ghost" className="flex-1" onClick={onNew}>
             <Plus size={14} />
             New connection

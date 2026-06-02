@@ -53,9 +53,9 @@ export function ExportButton({
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild disabled={disabled || busy}>
-        <Button size="sm" variant="secondary" disabled={disabled || busy}>
+        <Button size="sm" variant="secondary" aria-label="Export" disabled={disabled || busy}>
           {busy ? <Spinner size={13} /> : <Download size={13} />}
-          Export
+          <span className="hidden @lg:inline">Export</span>
         </Button>
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>

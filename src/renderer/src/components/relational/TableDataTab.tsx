@@ -291,7 +291,7 @@ export function TableDataTab({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-2 border-b border-border bg-surface px-3 py-1.5 text-xs text-muted">
+      <div className="@container flex items-center gap-2 border-b border-border bg-surface px-3 py-1.5 text-xs text-muted">
         <span className="font-mono text-text">{table}</span>
         <div className="flex items-center rounded-md border border-border p-0.5">
           {(['data', 'structure'] as const).map((v) => (
@@ -324,18 +324,25 @@ export function TableDataTab({
         <div className="flex-1" />
         {view === 'data' && !readOnly && (
           <>
-            <Button size="sm" variant="secondary" onClick={() => setAddOpen(true)} disabled={!meta}>
+            <Button
+              size="sm"
+              variant="secondary"
+              aria-label="Add row"
+              onClick={() => setAddOpen(true)}
+              disabled={!meta}
+            >
               <Plus size={13} />
-              Add row
+              <span className="hidden @lg:inline">Add row</span>
             </Button>
             <Button
               size="sm"
               variant="secondary"
+              aria-label="Import"
               onClick={() => setImportOpen(true)}
               disabled={!meta}
             >
               <FileUp size={13} />
-              Import
+              <span className="hidden @lg:inline">Import</span>
             </Button>
           </>
         )}

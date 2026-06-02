@@ -177,17 +177,19 @@ export function RedisWorkspace({ session }: { session: Session }): React.JSX.Ele
       <div className="flex w-72 shrink-0 flex-col border-r border-border bg-surface">
         <div className="flex items-center gap-2 border-b border-border p-2.5">
           <Database size={13} className="shrink-0 text-faint" />
-          <Select
-            className="h-7 text-xs"
-            value={dbIndex}
-            onChange={(e) => void changeDb(Number(e.target.value))}
-          >
-            {Array.from({ length: 16 }, (_, i) => (
-              <option key={i} value={i}>
-                db{i}
-              </option>
-            ))}
-          </Select>
+          <div className="min-w-0 flex-1">
+            <Select
+              className="h-7 text-xs"
+              value={dbIndex}
+              onChange={(e) => void changeDb(Number(e.target.value))}
+            >
+              {Array.from({ length: 16 }, (_, i) => (
+                <option key={i} value={i}>
+                  db{i}
+                </option>
+              ))}
+            </Select>
+          </div>
           {dbSize !== null && (
             <span className="shrink-0 text-[11px] tabular-nums text-faint">
               {dbSize.toLocaleString()} keys
