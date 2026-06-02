@@ -119,16 +119,20 @@ export function Sidebar({
                   <div
                     onMouseDown={() => openConnection(config)}
                     style={
-                      active && activeBg
-                        ? {
-                            backgroundColor: activeBg,
-                            boxShadow: 'rgba(0, 0, 0, 0.2) 0px 2px 8px 0px'
-                          }
-                        : undefined
+                      {
+                        ...(active && activeBg
+                          ? {
+                              backgroundColor: activeBg,
+                              boxShadow: 'rgba(0, 0, 0, 0.2) 0px 2px 8px 0px'
+                            }
+                          : {}),
+                        ...(fg ? { '--dd-fg': fg, '--dd-fg-soft': fgSoft } : {})
+                      } as React.CSSProperties
                     }
                     className={cn(
                       'group flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 transition-colors',
-                      active ? (activeBg ? '' : 'bg-accent-soft') : 'hover:bg-surface-2'
+                      active ? (activeBg ? '' : 'bg-accent-soft') : 'hover:bg-surface-2',
+                      fg && !active && 'dd-conn-row'
                     )}
                   >
                     <span
@@ -144,17 +148,13 @@ export function Sidebar({
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
                         <span
-                          className="truncate text-[13px] text-text"
-                          style={fg ? { color: fg } : undefined}
+                          className={cn('truncate text-[13px] text-text', fg && 'dd-conn-name')}
                         >
                           {config.name}
                         </span>
                         {session && <StatusDot status={session.status} />}
                       </div>
-                      <div
-                        className="truncate text-[11px] text-faint"
-                        style={fg ? { color: fgSoft } : undefined}
-                      >
+                      <div className={cn('truncate text-[11px] text-faint', fg && 'dd-conn-sub')}>
                         {connSubtitle(config)}
                       </div>
                     </div>
@@ -163,7 +163,6 @@ export function Sidebar({
                         <IconButton
                           label="Disconnect"
                           className="h-6 w-6"
-                          style={fg ? { color: fgSoft } : undefined}
                           onMouseDown={(e) => {
                             e.stopPropagation()
                             void closeConnection(config.id)
@@ -175,7 +174,6 @@ export function Sidebar({
                       <IconButton
                         label="Edit"
                         className="h-6 w-6"
-                        style={fg ? { color: fgSoft } : undefined}
                         onMouseDown={(e) => {
                           e.stopPropagation()
                           onEdit(config)
@@ -186,7 +184,6 @@ export function Sidebar({
                       <IconButton
                         label="Delete"
                         className="h-6 w-6 hover:text-danger"
-                        style={fg ? { color: fgSoft } : undefined}
                         onMouseDown={(e) => {
                           e.stopPropagation()
                           setDeleteTarget(config)
@@ -202,10 +199,10 @@ export function Sidebar({
           </ul>
         </div>
 
-        <div className="flex items-center gap-2 border-t border-border/70 p-2">
+        <div className="flex items-center gap-2 p-2">
           <Button
             variant="ghost"
-            className={cn('flex-1', fg && 'dd-sidebar-action')}
+            className={cn('flex-1 !justify-start', fg && 'dd-sidebar-action')}
             style={fg ? ({ '--dd-fg': fg } as React.CSSProperties) : undefined}
             onClick={onNew}
           >

@@ -156,6 +156,21 @@
   color: var(--color-text);
 }
 
+/* Connection rows over a themed sidebar: contrast color at rest, but fall back
+   to the theme text/muted on hover (the hover background is a theme surface). */
+.dd-conn-name {
+  color: var(--dd-fg);
+}
+.dd-conn-sub {
+  color: var(--dd-fg-soft);
+}
+.dd-conn-row:hover .dd-conn-name {
+  color: var(--color-text);
+}
+.dd-conn-row:hover .dd-conn-sub {
+  color: var(--color-muted);
+}
+
 /* ── React Flow dark theming (relation diagram) ─────────────────────────── */
 /* Theme via xyflow's own CSS variables so they win regardless of the order in
    which React Flow's stylesheet is injected relative to this file. */
