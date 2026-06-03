@@ -18,6 +18,7 @@
     "build:unpack": "npm run build && electron-builder --dir",
     "build:win": "npm run build && electron-builder --win",
     "build:mac": "electron-vite build && electron-builder --mac",
+    "build:mac:unsigned": "electron-vite build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac -c.mac.notarize=false -c.mac.hardenedRuntime=false",
     "build:linux": "electron-vite build && electron-builder --linux",
     "test:db:up": "docker compose -f test/docker-compose.yml up -d --wait",
     "test:db:down": "docker compose -f test/docker-compose.yml down -v",

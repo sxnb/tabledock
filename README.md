@@ -160,10 +160,39 @@ npm run dev
 
 ```bash
 npm run build         # type-check + bundle
-npm run build:mac     # package for macOS
+npm run build:mac     # package a signed + notarized macOS .dmg (see below)
 npm run build:win     # package for Windows
 npm run build:linux   # package for Linux
 ```
+
+### Packaging for macOS
+
+Builds target **Apple Silicon (arm64)** and produce a `.dmg` (plus a `.zip`) in `dist/`.
+
+**Quick local build (unsigned)** — for yourself or testers, no Apple account needed:
+
+```bash
+npm run build:mac:unsigned   # → dist/DataDock-<version>-arm64.dmg
+```
+
+Because it isn't signed/notarized, macOS Gatekeeper will warn on first open; install by dragging to Applications, then **right-click → Open** once (or `xattr -dr com.apple.quarantine /Applications/DataDock.app`).
+
+**Distributable build (signed + notarized)** — for a clean double-click install, you need an [Apple Developer](https://developer.apple.com/) account ($99/yr) and a **Developer ID Application** certificate in your login keychain. Provide notarization credentials via environment variables, then run `npm run build:mac`:
+
+```bash
+# App Store Connect API key (recommended)
+export APPLE_API_KEY=/path/to/AuthKey_XXXX.p8
+export APPLE_API_KEY_ID=XXXXXXXXXX
+export APPLE_API_ISSUER=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+# …or an Apple ID + app-specific password
+# export APPLE_ID=you@example.com
+# export APPLE_APP_SPECIFIC_PASSWORD=abcd-efgh-ijkl-mnop
+# export APPLE_TEAM_ID=XXXXXXXXXX
+
+npm run build:mac
+```
+
+electron-builder signs with the Developer ID cert (hardened runtime + the entitlements in `build/`) and notarizes the `.dmg`; the result opens with no Gatekeeper warning. Signing config lives in `electron-builder.yml`.
 
 ### Quality
 
