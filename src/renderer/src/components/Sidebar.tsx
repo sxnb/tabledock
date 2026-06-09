@@ -61,7 +61,7 @@ export function Sidebar({
     <aside className="relative flex w-64 shrink-0 flex-col overflow-hidden border-r border-border bg-surface">
       <NoiseBackground color={sidebarBg.color} noise={sidebarBg.noise} />
       <div className="relative z-10 flex min-h-0 flex-1 flex-col">
-        <header className="flex items-center gap-2 px-4 py-3.5">
+        <header className="dd-drag dd-titlebar flex items-center gap-2 px-4 py-3.5">
           <div className="grid h-7 w-7 place-items-center rounded-md bg-[radial-gradient(circle_at_50%_42%,rgba(157,139,255,0.55),#0a0c14_72%)] text-white shadow-[0_0_12px_rgba(139,123,255,0.5)] ring-1 ring-white/10">
             <DatabaseIcon size={15} />
           </div>
@@ -78,7 +78,7 @@ export function Sidebar({
                 aria-label="AI assistant"
                 onClick={onOpenAi}
                 className={cn(
-                  'dd-blob grid h-7 w-7 place-items-center bg-gradient-to-br from-accent to-blue text-white',
+                  'dd-no-drag dd-blob grid h-7 w-7 place-items-center bg-gradient-to-br from-accent to-blue text-white',
                   'shadow-[0_0_10px_rgba(139,123,255,0.45)] transition-shadow',
                   'hover:shadow-[0_0_16px_rgba(139,123,255,0.7)]',
                   'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/60'

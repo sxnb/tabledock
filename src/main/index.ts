@@ -28,6 +28,11 @@ function createWindow(): void {
     show: false,
     autoHideMenuBar: true,
     backgroundColor: '#0c0e16',
+    // macOS: hide the native title bar so the app's own chrome flows to the top
+    // edge; keep the traffic lights, inset to sit in the sidebar header row.
+    ...(process.platform === 'darwin'
+      ? { titleBarStyle: 'hidden' as const, trafficLightPosition: { x: 16, y: 19 } }
+      : {}),
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),

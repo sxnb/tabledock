@@ -145,6 +145,18 @@
   animation: dd-blob 5s ease-in-out infinite;
 }
 
+/* macOS hidden title bar: the top region is draggable, interactive children opt
+   out, and the sidebar header reserves space on the left for the traffic lights. */
+.dd-drag {
+  -webkit-app-region: drag;
+}
+.dd-no-drag {
+  -webkit-app-region: no-drag;
+}
+.is-mac .dd-titlebar {
+  padding-left: 5rem;
+}
+
 /* Sidebar footer actions over a custom (themed) sidebar background: use the
    contrast color (black/white via --dd-fg) at rest, but fall back to the normal
    text color on hover so the text stays legible against the hover background.
