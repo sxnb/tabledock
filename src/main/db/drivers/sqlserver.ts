@@ -463,7 +463,7 @@ export class SqlServerDriver implements RelationalDriver {
     const pool = await this.poolFor(target)
     const tables = await this.listTables(target)
     const parts: string[] = [
-      `-- DataDock data dump of ${target} — ${new Date().toISOString()}`,
+      `-- TableDock data dump of ${target} — ${new Date().toISOString()}`,
       '-- Note: schema (DDL) is not included; data only.\n'
     ]
     if (options?.includeCreateDatabase) {

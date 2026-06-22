@@ -1,5 +1,5 @@
 {
-  "name": "datadock",
+  "name": "tabledock",
   "version": "1.0.0",
   "description": "An Electron application with React and TypeScript",
   "main": "./out/main/index.js",
@@ -32,6 +32,7 @@
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
     "better-sqlite3": "^12.10.0",
+    "bson": "^7.3.0",
     "electron-updater": "^6.3.9",
     "ioredis": "^5.11.0",
     "mongodb": "^7.2.0",

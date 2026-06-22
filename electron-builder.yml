@@ -1,5 +1,5 @@
-appId: com.datadock.app
-productName: DataDock
+appId: com.tabledock.app
+productName: TableDock
 directories:
   buildResources: build
 files:
@@ -15,7 +15,7 @@ files:
 asarUnpack:
   - resources/**
 win:
-  executableName: datadock
+  executableName: tabledock
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}

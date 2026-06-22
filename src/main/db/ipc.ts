@@ -338,7 +338,7 @@ function saveOptions(
 ): Electron.SaveDialogOptions {
   return {
     title: 'Create database dump',
-    defaultPath: `${name || 'datadock'}-${stamp}.${ext}`,
+    defaultPath: `${name || 'tabledock'}-${stamp}.${ext}`,
     filters: [
       { name: ext.toUpperCase(), extensions: [ext] },
       { name: 'All Files', extensions: ['*'] }

@@ -14,14 +14,14 @@ interface Fixtures {
 
 /**
  * Per-test Electron app launched against the built main, pointed at a throwaway
- * userData dir (via DATADOCK_USER_DATA) so each test starts with no saved state.
+ * userData dir (via TABLEDOCK_USER_DATA) so each test starts with no saved state.
  */
 export const test = base.extend<Fixtures>({
   app: async ({}, use) => {
-    const userData = mkdtempSync(join(tmpdir(), 'datadock-e2e-'))
+    const userData = mkdtempSync(join(tmpdir(), 'tabledock-e2e-'))
     const app = await _electron.launch({
       args: [MAIN],
-      env: { ...process.env, DATADOCK_USER_DATA: userData }
+      env: { ...process.env, TABLEDOCK_USER_DATA: userData }
     })
     await use(app)
     await app.close()

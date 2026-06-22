@@ -7,7 +7,7 @@ import type {
   AppSettings,
   ConnectionConfig,
   CreateDumpParams,
-  DataDockApi,
+  TableDockApi,
   DeleteRowParams,
   InsertRowParams,
   GetRowsOptions,
@@ -41,7 +41,7 @@ async function invoke<T>(channel: string, ...args: unknown[]): Promise<T> {
   return result.data
 }
 
-const api: DataDockApi = {
+const api: TableDockApi = {
   store: {
     list: (): Promise<ConnectionConfig[]> => invoke('store:list'),
     save: (config: ConnectionConfig): Promise<ConnectionConfig> => invoke('store:save', config),

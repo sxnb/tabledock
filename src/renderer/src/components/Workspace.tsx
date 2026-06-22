@@ -1,4 +1,5 @@
-import { Database, AlertTriangle, RotateCcw, Command } from 'lucide-react'
+import { AlertTriangle, RotateCcw, Command } from 'lucide-react'
+import logo from '@renderer/assets/logo.webp'
 import { useWorkspace } from '@renderer/store/workspace'
 import { KIND_META } from '@renderer/lib/kinds'
 import { Spinner } from './ui/Spinner'
@@ -22,12 +23,10 @@ function Kbd({ children }: { children: React.ReactNode }): React.JSX.Element {
 function WelcomeScreen(): React.JSX.Element {
   return (
     <div className="dd-glow relative flex h-full flex-col items-center justify-center gap-5 px-6 text-center">
-      <div className="grid h-14 w-14 place-items-center rounded-2xl bg-[radial-gradient(circle_at_50%_42%,rgba(157,139,255,0.6),#0a0c14_72%)] text-white shadow-[0_0_30px_rgba(139,123,255,0.45)] ring-1 ring-white/10">
-        <Database size={26} />
-      </div>
+      <img src={logo} alt="TableDock" className="h-14 w-14 rounded-2xl" />
 
       <div className="flex flex-col items-center gap-2">
-        <h1 className="text-lg font-semibold text-text">Welcome to DataDock</h1>
+        <h1 className="text-lg font-semibold text-text">Welcome to TableDock</h1>
         <p className="max-w-md text-xs leading-relaxed text-muted">
           A sleek desktop client for MySQL, MariaDB, PostgreSQL, SQL Server, MongoDB, Redis, and
           SQLite. Pick a connection from the sidebar to open it, or create a new one to get started.

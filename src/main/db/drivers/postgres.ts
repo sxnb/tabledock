@@ -384,7 +384,7 @@ export class PostgresDriver implements RelationalDriver {
        ORDER BY table_name`
     )
     const parts: string[] = [
-      `-- DataDock data dump of ${target} — ${new Date().toISOString()}`,
+      `-- TableDock data dump of ${target} — ${new Date().toISOString()}`,
       '-- Note: schema (DDL) is not included; data only.\n'
     ]
     if (options?.includeCreateDatabase) parts.push(`CREATE DATABASE ${quoteIdent(target)};\n`)

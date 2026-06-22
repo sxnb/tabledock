@@ -1,11 +1,23 @@
-# DataDock — User Guide
+# TableDock — User Guide
 
-A walkthrough of DataDock's main features. Screenshots are generated from the
+A walkthrough of TableDock's main features. Screenshots are generated from the
 running app by `npm run docs:screenshots` (see [Regenerating screenshots](#regenerating-screenshots)).
+
+## Installation
+
+Drag **TableDock.app** from the `.dmg` into your Applications folder and double-click to open.
+
+If macOS shows a _"TableDock can't be opened because it is from an unidentified developer"_ error, run this once in Terminal:
+
+```bash
+xattr -rd com.apple.quarantine /Applications/TableDock.app
+```
+
+Then double-click the app again — the warning won't reappear.
 
 ## Getting started
 
-Launch DataDock and you're greeted by the workspace: saved connections on the
+Launch TableDock and you're greeted by the workspace: saved connections on the
 left, the active connection's content on the right. With nothing open yet, the
 welcome screen points you at the command palette.
 
@@ -117,5 +129,5 @@ npm run docs:screenshots
 ```
 
 This starts the seeded test databases, builds the app, and runs
-`test/screenshots/capture.spec.ts`, which launches DataDock against a throwaway
+`test/screenshots/capture.spec.ts`, which launches TableDock against a throwaway
 profile, navigates each screen, and writes the PNGs into `docs/screenshots/`.

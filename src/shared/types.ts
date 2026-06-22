@@ -359,7 +359,7 @@ export interface MongoCollectionStats {
 export type IpcResult<T> = { ok: true; data: T } | { ok: false; error: string }
 
 /** The shape exposed on `window.api` by the preload bridge. */
-export interface DataDockApi {
+export interface TableDockApi {
   store: {
     list(): Promise<ConnectionConfig[]>
     save(config: ConnectionConfig): Promise<ConnectionConfig>

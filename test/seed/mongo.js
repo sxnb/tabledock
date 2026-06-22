@@ -1,5 +1,5 @@
 // Seed data for the MongoDB test container.
-// Runs in the database named by MONGO_INITDB_DATABASE (datadock_test).
+// Runs in the database named by MONGO_INITDB_DATABASE (tabledock_test).
 db.users.insertMany([
   { email: 'alice@example.com', name: 'Alice', active: true, age: 30 },
   { email: 'bob@example.com', name: 'Bob', active: true, age: 25 },

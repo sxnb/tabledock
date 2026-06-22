@@ -12,10 +12,12 @@ import { registerHapticsIpc } from './haptics'
 import { registerMenu } from './menu'
 import { connectionManager } from './db/manager'
 
+app.setName('TableDock')
+
 // Test isolation: redirect persisted data (connections, history, settings) to a
 // throwaway directory so E2E runs start clean and never touch real app data.
-if (process.env.DATADOCK_USER_DATA) {
-  app.setPath('userData', process.env.DATADOCK_USER_DATA)
+if (process.env.TABLEDOCK_USER_DATA) {
+  app.setPath('userData', process.env.TABLEDOCK_USER_DATA)
 }
 
 function createWindow(): void {
@@ -62,7 +64,7 @@ function createWindow(): void {
 // initialization and is ready to create browser windows.
 app.whenReady().then(() => {
   // Set app user model id for windows
-  electronApp.setAppUserModelId('com.datadock')
+  electronApp.setAppUserModelId('com.tabledock')
 
   // macOS shows the default Electron icon in the dock during development
   // (the packaged .icns only applies to a built app); set it explicitly.

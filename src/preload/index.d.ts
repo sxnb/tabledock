@@ -1,9 +1,9 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
-import type { DataDockApi } from '../shared/types'
+import type { TableDockApi } from '../shared/types'
 
 declare global {
   interface Window {
     electron: ElectronAPI
-    api: DataDockApi
+    api: TableDockApi
   }
 }

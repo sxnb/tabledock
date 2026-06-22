@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="resources/icon.png" width="120" alt="DataDock logo" />
+<img src="resources/icon.png" width="120" alt="TableDock logo" />
 
-# DataDock
+# TableDock
 
 **A sleek, modern desktop database client for MySQL, MariaDB, PostgreSQL, SQL Server, MongoDB, Redis & SQLite.**
 
@@ -28,7 +28,7 @@ Browse, query, edit, and visualize your databases — all from one minimalist wo
 
 <br/>
 
-<img src="screenshot.png" width="880" alt="DataDock browsing a relational database — sidebar with connections and tables, and a paginated data grid" />
+<img src="screenshot.png" width="880" alt="TableDock browsing a relational database — sidebar with connections and tables, and a paginated data grid" />
 
 </div>
 
@@ -172,10 +172,10 @@ Builds target **Apple Silicon (arm64)** and produce a `.dmg` (plus a `.zip`) in 
 **Quick local build (unsigned)** — for yourself or testers, no Apple account needed:
 
 ```bash
-npm run build:mac:unsigned   # → dist/DataDock-<version>-arm64.dmg
+npm run build:mac:unsigned   # → dist/TableDock-<version>-arm64.dmg
 ```
 
-Because it isn't signed/notarized, macOS Gatekeeper will warn on first open; install by dragging to Applications, then **right-click → Open** once (or `xattr -dr com.apple.quarantine /Applications/DataDock.app`).
+Because it isn't signed/notarized, macOS Gatekeeper will warn on first open; install by dragging to Applications, then **right-click → Open** once (or `xattr -dr com.apple.quarantine /Applications/TableDock.app`).
 
 **Distributable build (signed + notarized)** — for a clean double-click install, you need an [Apple Developer](https://developer.apple.com/) account ($99/yr) and a **Developer ID Application** certificate in your login keychain. Provide notarization credentials via environment variables, then run `npm run build:mac`:
 
@@ -230,21 +230,21 @@ Typical local loop: `test:db:up` once, then re-run `test:int` / `test:e2e` as yo
 
 #### Test databases
 
-Defined in `test/docker-compose.yml` on **non-standard host ports** so they never clash with a local install. Each is seeded once on first start (`test/seed/`) with a `datadock_test` database containing `users` + `posts` (Mongo: a `users` collection):
+Defined in `test/docker-compose.yml` on **non-standard host ports** so they never clash with a local install. Each is seeded once on first start (`test/seed/`) with a `tabledock_test` database containing `users` + `posts` (Mongo: a `users` collection):
 
 | Database   | Host port | Credentials             |
 | ---------- | --------- | ----------------------- |
-| PostgreSQL | 55432     | `datadock` / `datadock` |
-| MySQL      | 53306     | `root` / `datadock`     |
-| MariaDB    | 53307     | `root` / `datadock`     |
+| PostgreSQL | 55432     | `tabledock` / `tabledock` |
+| MySQL      | 53306     | `root` / `tabledock`     |
+| MariaDB    | 53307     | `root` / `tabledock`     |
 | MongoDB    | 57017     | (no auth)               |
 | Redis      | 56379     | (no auth)               |
 
-Connection details live in `test/support/dbconfig.ts` and are shared by both suites. Host/ports are overridable via env (`DATADOCK_TEST_HOST`, `DATADOCK_PG_PORT`, `DATADOCK_MYSQL_PORT`, `DATADOCK_MARIADB_PORT`, `DATADOCK_MONGO_PORT`, `DATADOCK_REDIS_PORT`).
+Connection details live in `test/support/dbconfig.ts` and are shared by both suites. Host/ports are overridable via env (`TABLEDOCK_TEST_HOST`, `TABLEDOCK_PG_PORT`, `TABLEDOCK_MYSQL_PORT`, `TABLEDOCK_MARIADB_PORT`, `TABLEDOCK_MONGO_PORT`, `TABLEDOCK_REDIS_PORT`).
 
 #### Notes
 
-- E2E isolation: the app honours `DATADOCK_USER_DATA`, so each E2E run gets a fresh, throwaway profile (no saved connections/history bleed between runs or into your real data).
+- E2E isolation: the app honours `TABLEDOCK_USER_DATA`, so each E2E run gets a fresh, throwaway profile (no saved connections/history bleed between runs or into your real data).
 - SQLite needs no container (it's a file); SQL Server is not in the harness yet.
 - The integration suite imports driver classes directly (never the connection manager) so it runs under plain Node — `better-sqlite3` is built for Electron's ABI and is covered by the E2E layer instead.
 

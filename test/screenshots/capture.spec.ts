@@ -30,15 +30,15 @@ test('capture documentation screenshots', async () => {
   await r.set('session:42', JSON.stringify({ user: 'alice', roles: ['admin'] }))
   await r.quit()
 
-  const userData = mkdtempSync(join(tmpdir(), 'datadock-shots-'))
+  const userData = mkdtempSync(join(tmpdir(), 'tabledock-shots-'))
   const app = await _electron.launch({
     args: [MAIN],
-    env: { ...process.env, DATADOCK_USER_DATA: userData }
+    env: { ...process.env, TABLEDOCK_USER_DATA: userData }
   })
   const page = await app.firstWindow()
   await page.waitForLoadState('domcontentloaded')
   await app.evaluate(({ BrowserWindow }) => {
-    BrowserWindow.getAllWindows()[0]?.setContentSize(1280, 820)
+    BrowserWindow.getAllWindows()[0]?.setContentSize(1440, 820)
   })
 
   const shot = (name: string): Promise<Buffer> =>
@@ -51,8 +51,11 @@ test('capture documentation screenshots', async () => {
   await page.reload()
   await page.waitForLoadState('domcontentloaded')
 
+  // Remove the macOS traffic-light top padding for cleaner screenshots.
+  await page.addStyleTag({ content: '.is-mac .dd-titlebar { padding-top: 16px !important; }' })
+
   // 1. Welcome screen (sidebar populated, no connection open).
-  await expect(page.getByText('Welcome to DataDock')).toBeVisible()
+  await expect(page.getByText('Welcome to TableDock')).toBeVisible()
   await shot('welcome')
 
   // 2. Command palette.
@@ -133,6 +136,7 @@ test('capture documentation screenshots', async () => {
   })
   await page.reload()
   await page.waitForLoadState('domcontentloaded')
+  await page.addStyleTag({ content: '.is-mac .dd-titlebar { padding-top: 16px !important; }' })
   await page.getByText('Test Postgres').click()
   await page.getByRole('button', { name: 'AI assistant' }).click()
   await expect(page.getByText('plain English', { exact: false })).toBeVisible()

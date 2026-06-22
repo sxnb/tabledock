@@ -3,7 +3,7 @@ import { test, expect } from './fixtures'
 const MOD = process.platform === 'darwin' ? 'Meta' : 'Control'
 
 test('welcome screen renders and the command palette opens', async ({ page }) => {
-  await expect(page.getByText('Welcome to DataDock')).toBeVisible()
+  await expect(page.getByText('Welcome to TableDock')).toBeVisible()
 
   await page.keyboard.press(`${MOD}+k`)
   const search = page.getByPlaceholder('Search connections, tables, actions…')

@@ -25,7 +25,7 @@ for (const kind of RELATIONAL_KINDS) {
     })
 
     it('lists the seeded database and tables', async () => {
-      expect(await driver.listDatabases()).toContain('datadock_test')
+      expect(await driver.listDatabases()).toContain('tabledock_test')
       const tables = await driver.listTables()
       expect(tables).toEqual(expect.arrayContaining(['users', 'posts']))
     })

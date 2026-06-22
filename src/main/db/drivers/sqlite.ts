@@ -233,7 +233,7 @@ export class SqliteDriver implements RelationalDriver {
       )
       .all() as { name: string; sql: string }[]
     const parts: string[] = [
-      `-- DataDock dump of ${basename(this.config.filePath || 'database')} — ${new Date().toISOString()}\n`
+      `-- TableDock dump of ${basename(this.config.filePath || 'database')} — ${new Date().toISOString()}\n`
     ]
     for (const { name, sql } of tables) {
       parts.push(`DROP TABLE IF EXISTS ${quoteIdent(name)};`)

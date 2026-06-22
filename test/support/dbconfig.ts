@@ -5,9 +5,9 @@ import type { ConnectionConfig, DriverKind } from '../../src/shared/types'
  * Host/ports are overridable via env so the same configs work locally and, later,
  * in CI. Shared by the Vitest integration suite and the Playwright E2E suite.
  */
-export const TEST_DB = 'datadock_test'
+export const TEST_DB = 'tabledock_test'
 
-const host = process.env.DATADOCK_TEST_HOST || '127.0.0.1'
+const host = process.env.TABLEDOCK_TEST_HOST || '127.0.0.1'
 const port = (envVar: string, fallback: number): number => Number(process.env[envVar] || fallback)
 
 type TestKind = 'postgres' | 'mysql' | 'mariadb' | 'mongodb' | 'redis'
@@ -18,9 +18,9 @@ const PARAMS: Record<TestKind, ConnectionConfig> = {
     name: 'Test Postgres',
     kind: 'postgres',
     host,
-    port: port('DATADOCK_PG_PORT', 55432),
-    user: 'datadock',
-    password: 'datadock',
+    port: port('TABLEDOCK_PG_PORT', 55432),
+    user: 'tabledock',
+    password: 'tabledock',
     database: TEST_DB
   },
   mysql: {
@@ -28,9 +28,9 @@ const PARAMS: Record<TestKind, ConnectionConfig> = {
     name: 'Test MySQL',
     kind: 'mysql',
     host,
-    port: port('DATADOCK_MYSQL_PORT', 53306),
+    port: port('TABLEDOCK_MYSQL_PORT', 53306),
     user: 'root',
-    password: 'datadock',
+    password: 'tabledock',
     database: TEST_DB
   },
   mariadb: {
@@ -38,9 +38,9 @@ const PARAMS: Record<TestKind, ConnectionConfig> = {
     name: 'Test MariaDB',
     kind: 'mariadb',
     host,
-    port: port('DATADOCK_MARIADB_PORT', 53307),
+    port: port('TABLEDOCK_MARIADB_PORT', 53307),
     user: 'root',
-    password: 'datadock',
+    password: 'tabledock',
     database: TEST_DB
   },
   mongodb: {
@@ -48,7 +48,7 @@ const PARAMS: Record<TestKind, ConnectionConfig> = {
     name: 'Test MongoDB',
     kind: 'mongodb',
     host,
-    port: port('DATADOCK_MONGO_PORT', 57017),
+    port: port('TABLEDOCK_MONGO_PORT', 57017),
     database: TEST_DB
   },
   redis: {
@@ -56,7 +56,7 @@ const PARAMS: Record<TestKind, ConnectionConfig> = {
     name: 'Test Redis',
     kind: 'redis',
     host,
-    port: port('DATADOCK_REDIS_PORT', 56379),
+    port: port('TABLEDOCK_REDIS_PORT', 56379),
     redisDb: 0
   }
 }

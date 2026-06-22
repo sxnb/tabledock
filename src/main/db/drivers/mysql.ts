@@ -300,7 +300,7 @@ export class MySqlDriver implements RelationalDriver {
     const target = database || this.config.database
     if (!target) throw new Error('No database selected')
     const tables = await this.listTables(target)
-    const parts: string[] = [`-- DataDock dump of \`${target}\` — ${new Date().toISOString()}\n`]
+    const parts: string[] = [`-- TableDock dump of \`${target}\` — ${new Date().toISOString()}\n`]
     if (options?.includeCreateDatabase) {
       parts.push(`CREATE DATABASE IF NOT EXISTS ${quoteIdent(target)};`)
       parts.push(`USE ${quoteIdent(target)};\n`)

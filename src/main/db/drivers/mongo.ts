@@ -205,7 +205,7 @@ export class MongoDriver implements MongoDriverApi {
   async dumpJson(database: string): Promise<string> {
     const db = this.handle.db(database)
     const collections = await this.listCollections(database)
-    const parts: string[] = [`// DataDock dump of ${database} — ${new Date().toISOString()}\n`]
+    const parts: string[] = [`// TableDock dump of ${database} — ${new Date().toISOString()}\n`]
     for (const name of collections) {
       const docs = await db.collection(name).find({}).toArray()
       parts.push(`// collection: ${name}`)

@@ -1,4 +1,4 @@
-wing: datadock
+wing: tabledock
 rooms:
   - name: resources
     description: Files from resources/
