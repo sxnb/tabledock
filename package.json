@@ -1,6 +1,6 @@
 {
   "name": "tabledock",
-  "version": "0.0.2",
+  "version": "0.0.1",
   "description": "TableDock is a sleek, modern desktop database client for MySQL, MariaDB, PostgreSQL, SQL Server, MongoDB, Redis & SQLite.",
   "main": "./out/main/index.js",
   "author": "Colorcode SRL",
