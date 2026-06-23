@@ -145,4 +145,4 @@ TableDock is licensed under the [Business Source License 1.1](LICENSE).
 
 **Free for personal use.** For commercial use or use within an organization, a [one-time commercial license](https://colorcode.lemonsqueezy.com/checkout/buy/0f3e2ea5-512c-4203-9ad5-6193c690cd55) is required.
 
-The license automatically converts to **MIT on 2030-01-01**.
+The license automatically converts to **GPL v3 on 2035-01-01**.
