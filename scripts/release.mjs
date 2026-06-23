@@ -58,8 +58,13 @@ const existingTag = execSync('git tag --list', { encoding: 'utf-8', cwd: root })
   .split('\n')
   .find((t) => t.trim() === tag)
 if (existingTag) {
-  console.error(`❌  Tag ${tag} already exists. Bump the version in package.json first.`)
-  process.exit(1)
+  // Allow if the tag already points to HEAD (user created it manually).
+  const taggedCommit = execSync(`git rev-list -n 1 ${tag}`, { encoding: 'utf-8', cwd: root }).trim()
+  if (taggedCommit !== localHead) {
+    console.error(`❌  Tag ${tag} already exists and points to a different commit. Bump the version in package.json first.`)
+    process.exit(1)
+  }
+  console.log(`ℹ️   Tag ${tag} already exists at HEAD — skipping tag creation.`)
 }
 
 // ── Commits since last tag ────────────────────────────────────────────────────
@@ -141,10 +146,12 @@ if (!repoMatch) {
 }
 const [, owner, repo] = repoMatch
 
-// Create and push the tag.
-console.log(`\nTagging ${tag}…`)
-execSync(`git tag -a ${tag} -m "Release ${tag}"`, { cwd: root, stdio: 'inherit' })
-execSync(`git push origin ${tag}`, { cwd: root, stdio: 'inherit' })
+// Create and push the tag (skip if it already exists at HEAD).
+if (!existingTag) {
+  console.log(`\nTagging ${tag}…`)
+  execSync(`git tag -a ${tag} -m "Release ${tag}"`, { cwd: root, stdio: 'inherit' })
+  execSync(`git push origin ${tag}`, { cwd: root, stdio: 'inherit' })
+}
 
 // Write payload to a temp file to avoid shell-escaping issues.
 const payload = JSON.stringify({
