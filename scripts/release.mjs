@@ -29,7 +29,12 @@ const title = `TableDock ${tag}`
 
 // ── Safety checks ─────────────────────────────────────────────────────────────
 
-const dirty = execSync('git status --porcelain', { encoding: 'utf-8', cwd: root }).trim()
+// Only check tracked files — untracked files don't affect the release.
+const dirty = execSync('git status --porcelain', { encoding: 'utf-8', cwd: root })
+  .split('\n')
+  .filter((line) => line.length > 0 && !line.startsWith('??'))
+  .join('\n')
+  .trim()
 if (dirty) {
   console.error('❌  Uncommitted changes detected. Commit or stash them first.\n')
   console.error(dirty)
