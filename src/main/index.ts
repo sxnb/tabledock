@@ -10,6 +10,7 @@ import { registerSettingsIpc } from './settings'
 import { registerAiIpc } from './ai/ipc'
 import { registerHapticsIpc } from './haptics'
 import { registerMenu } from './menu'
+import { registerLicenseIpc } from './license'
 import { connectionManager } from './db/manager'
 
 app.setName('TableDock')
@@ -66,9 +67,11 @@ app.whenReady().then(() => {
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.colorcodesrl.tabledock')
 
-  // macOS shows the default Electron icon in the dock during development
-  // (the packaged .icns only applies to a built app); set it explicitly.
-  if (process.platform === 'darwin') app.dock?.setIcon(icon)
+  // In development the app runs as the Electron binary, so the dock would show
+  // Electron's own icon. Override it explicitly. In production the .icns in the
+  // app bundle is used automatically, and setting it here would prevent macOS
+  // from applying dark/tinted dock icon transformations.
+  if (is.dev && process.platform === 'darwin') app.dock?.setIcon(icon)
 
   // Default open or close DevTools by F12 in development.
   app.on('browser-window-created', (_, window) => {
@@ -82,12 +85,17 @@ app.whenReady().then(() => {
   registerSavedQueriesIpc()
   registerSettingsIpc()
   registerAiIpc()
+  registerLicenseIpc()
   registerHapticsIpc()
   registerMenu()
 
   // Keep the native window background in sync with the renderer's theme.
   ipcMain.on('app:setBackgroundColor', (event, color: string) => {
     BrowserWindow.fromWebContents(event.sender)?.setBackgroundColor(color)
+  })
+
+  ipcMain.on('app:openExternal', (_event, url: string) => {
+    void shell.openExternal(url)
   })
 
   createWindow()

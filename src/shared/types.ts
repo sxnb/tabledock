@@ -358,6 +358,15 @@ export interface MongoCollectionStats {
 /** Envelope returned across IPC so the renderer can handle errors uniformly. */
 export type IpcResult<T> = { ok: true; data: T } | { ok: false; error: string }
 
+export type LicenseStatus = 'personal' | 'active' | 'invalid'
+
+export interface LicenseInfo {
+  status: LicenseStatus
+  /** First 8 chars + masked middle + last 4, e.g. "XXXXXXXX-****-****-****-XXXX". Never the raw key. */
+  maskedKey: string | null
+  activatedAt: string | null
+}
+
 /** The shape exposed on `window.api` by the preload bridge. */
 export interface TableDockApi {
   store: {
@@ -508,6 +517,8 @@ export interface TableDockApi {
   app: {
     /** Update the native window background color (matches the active theme). */
     setBackgroundColor(color: string): void
+    /** Open a URL in the system default browser. */
+    openExternal(url: string): void
   }
   menu: {
     /** Tell the main process about the active connection so it can build the menu. */
@@ -516,6 +527,11 @@ export interface TableDockApi {
     onDisconnect(callback: () => void): () => void
     onImport(callback: () => void): () => void
     onDump(callback: () => void): () => void
+  }
+  license: {
+    get(): Promise<LicenseInfo>
+    activate(key: string): Promise<LicenseInfo>
+    deactivate(): Promise<void>
   }
 }
 

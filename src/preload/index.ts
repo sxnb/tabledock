@@ -7,6 +7,7 @@ import type {
   AppSettings,
   ConnectionConfig,
   CreateDumpParams,
+  LicenseInfo,
   TableDockApi,
   DeleteRowParams,
   InsertRowParams,
@@ -263,13 +264,19 @@ const api: TableDockApi = {
     tap: (): void => ipcRenderer.send('haptics:tap')
   },
   app: {
-    setBackgroundColor: (color: string): void => ipcRenderer.send('app:setBackgroundColor', color)
+    setBackgroundColor: (color: string): void => ipcRenderer.send('app:setBackgroundColor', color),
+    openExternal: (url: string): void => ipcRenderer.send('app:openExternal', url)
   },
   menu: {
     setContext: (context: MenuContext): void => ipcRenderer.send('menu:setContext', context),
     onDisconnect: (callback: () => void): (() => void) => subscribe('menu:disconnect', callback),
     onImport: (callback: () => void): (() => void) => subscribe('menu:import', callback),
     onDump: (callback: () => void): (() => void) => subscribe('menu:dump', callback)
+  },
+  license: {
+    get: (): Promise<LicenseInfo> => invoke('license:get'),
+    activate: (key: string): Promise<LicenseInfo> => invoke('license:activate', key),
+    deactivate: (): Promise<void> => invoke('license:deactivate')
   }
 }
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Sun, Moon, Monitor, Sparkles, Palette, CheckCircle2 } from 'lucide-react'
-import type { AiProvider, ThemeMode } from '@shared/types'
+import { Sun, Moon, Monitor, Sparkles, Palette, CheckCircle2, KeyRound } from 'lucide-react'
+import type { AiProvider, LicenseInfo, ThemeMode } from '@shared/types'
 import { useSettings } from '@renderer/store/settings'
 import { useAi, DEFAULT_MODEL, MODELS } from '@renderer/store/ai'
 import { toast } from '@renderer/store/toasts'
@@ -42,7 +42,7 @@ const PROVIDERS: { value: AiProvider; label: string }[] = [
 /** Sentinel value for the "Custom…" model dropdown option. */
 const CUSTOM_MODEL = '__custom__'
 
-type Tab = 'appearance' | 'ai'
+type Tab = 'appearance' | 'ai' | 'license'
 
 interface SettingsModalProps {
   open: boolean
@@ -89,9 +89,12 @@ export function SettingsModal({
           <TabButton active={tab === 'ai'} onClick={() => setTab('ai')} icon={Sparkles}>
             AI Assistant
           </TabButton>
+          <TabButton active={tab === 'license'} onClick={() => setTab('license')} icon={KeyRound}>
+            License
+          </TabButton>
         </div>
 
-        {tab === 'appearance' ? <AppearanceTab /> : <AiTab />}
+        {tab === 'appearance' ? <AppearanceTab /> : tab === 'ai' ? <AiTab /> : <LicenseTab />}
       </div>
     </Modal>
   )
@@ -194,6 +197,117 @@ function AppearanceTab(): React.JSX.Element {
           </div>
         </div>
       </section>
+    </div>
+  )
+}
+
+function LicenseTab(): React.JSX.Element {
+  const [info, setInfo] = useState<LicenseInfo | null>(null)
+  const [key, setKey] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    void window.api.license.get().then(setInfo)
+  }, [])
+
+  const activate = async (): Promise<void> => {
+    if (!key.trim()) return
+    setBusy(true)
+    try {
+      const updated = await window.api.license.activate(key.trim())
+      setInfo(updated)
+      setKey('')
+      toast.success('License activated — thank you!')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const deactivate = async (): Promise<void> => {
+    setBusy(true)
+    try {
+      await window.api.license.deactivate()
+      setInfo({ status: 'personal', maskedKey: null, activatedAt: null })
+      toast.success('License removed from this machine.')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const isActive = info?.status === 'active'
+
+  return (
+    <div className="flex flex-col gap-4">
+      <p className="text-xs leading-relaxed text-muted">
+        TableDock is free for personal use. A one-time commercial license is required for use at a
+        company or organization. Enter your license key below to activate.
+      </p>
+
+      <div className="flex items-center justify-between rounded-lg border border-border bg-surface-2 px-3 py-2.5">
+        <span className="text-xs font-medium text-muted">Status</span>
+        {isActive ? (
+          <span className="flex items-center gap-1.5 text-xs font-semibold text-ok">
+            <CheckCircle2 size={13} />
+            Commercial — Licensed
+          </span>
+        ) : (
+          <span className="text-xs font-semibold text-text">Personal (Free)</span>
+        )}
+      </div>
+
+      {isActive && info?.maskedKey && (
+        <div className="flex flex-col gap-1">
+          <span className="text-xs font-medium text-muted">License key</span>
+          <span className="font-mono text-xs text-faint">{info.maskedKey}</span>
+          {info.activatedAt && (
+            <span className="text-[11px] text-faint">
+              Activated {new Date(info.activatedAt).toLocaleDateString()}
+            </span>
+          )}
+        </div>
+      )}
+
+      {!isActive && (
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-baseline justify-between">
+            <span className="text-xs font-medium text-muted">License key</span>
+            <button
+              className="text-[11px] text-accent hover:text-accent-hover transition-colors"
+              onClick={() =>
+                window.api.app.openExternal(
+                  'https://colorcode.lemonsqueezy.com/checkout/buy/0f3e2ea5-512c-4203-9ad5-6193c690cd55'
+                )
+              }
+            >
+              Get a commercial license →
+            </button>
+          </div>
+          <Input
+            type="password"
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+            placeholder="XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+            onKeyDown={(e) => { if (e.key === 'Enter') void activate() }}
+          />
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        {!isActive && (
+          <Button variant="primary" onClick={activate} disabled={busy || !key.trim()} className="self-start">
+            Activate
+          </Button>
+        )}
+        {isActive && (
+          <Button variant="ghost" onClick={deactivate} disabled={busy} className="self-start text-error hover:text-error">
+            Deactivate
+          </Button>
+        )}
+      </div>
     </div>
   )
 }

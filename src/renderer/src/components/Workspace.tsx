@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { AlertTriangle, RotateCcw, Command } from 'lucide-react'
 import logo from '@renderer/assets/logo.webp'
 import { useWorkspace } from '@renderer/store/workspace'
@@ -21,6 +22,12 @@ function Kbd({ children }: { children: React.ReactNode }): React.JSX.Element {
 }
 
 function WelcomeScreen(): React.JSX.Element {
+  const [licensed, setLicensed] = useState(true)
+
+  useEffect(() => {
+    void window.api.license.get().then((info) => setLicensed(info.status === 'active'))
+  }, [])
+
   return (
     <div className="dd-glow relative flex h-full flex-col items-center justify-center gap-5 px-6 text-center">
       <img src={logo} alt="TableDock" className="h-14 w-14 rounded-2xl" />
@@ -49,6 +56,22 @@ function WelcomeScreen(): React.JSX.Element {
           </span>
         </div>
       </div>
+
+      {/* License notice — hidden once the user has an active commercial license */}
+      {!licensed && <p className="max-w-sm text-[11px] leading-relaxed text-faint">
+        TableDock is free for personal use. For commercial use or use within an organization, a{' '}
+        <button
+          className="text-faint underline underline-offset-2 hover:text-muted transition-colors"
+          onClick={() =>
+            window.api.app.openExternal(
+              'https://colorcode.lemonsqueezy.com/checkout/buy/0f3e2ea5-512c-4203-9ad5-6193c690cd55'
+            )
+          }
+        >
+          one-time commercial license
+        </button>
+        {' '}is required.
+      </p>}
     </div>
   )
 }

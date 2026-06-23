@@ -147,12 +147,16 @@
 
 /* macOS hidden title bar: the top region is draggable, interactive children opt
    out, and the sidebar header reserves space on top for the traffic lights so
-   the logo sits beneath them. */
+   the logo sits beneath them. On Windows/Linux the native title bar is used, so
+   only a small 16px top nudge is needed. */
 .dd-drag {
   -webkit-app-region: drag;
 }
 .dd-no-drag {
   -webkit-app-region: no-drag;
+}
+.dd-titlebar {
+  padding-top: 16px;
 }
 .is-mac .dd-titlebar {
   padding-top: 2.5rem;
