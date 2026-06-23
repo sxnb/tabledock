@@ -55,6 +55,7 @@ linux:
   target:
     - AppImage
     - deb
+    - rpm
   maintainer: colorcode@colorcode.ro
   category: Utility
 appImage:
