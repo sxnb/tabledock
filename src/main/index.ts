@@ -64,7 +64,7 @@ function createWindow(): void {
 // initialization and is ready to create browser windows.
 app.whenReady().then(() => {
   // Set app user model id for windows
-  electronApp.setAppUserModelId('com.tabledock')
+  electronApp.setAppUserModelId('com.colorcodesrl.tabledock')
 
   // macOS shows the default Electron icon in the dock during development
   // (the packaged .icns only applies to a built app); set it explicitly.

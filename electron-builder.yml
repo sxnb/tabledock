@@ -1,4 +1,4 @@
-appId: com.tabledock.app
+appId: com.colorcodesrl.tabledock
 productName: TableDock
 directories:
   buildResources: build
@@ -39,6 +39,18 @@ mac:
     - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
 dmg:
   artifactName: ${name}-${version}-${arch}.${ext}
+  background: build/dmg-background.png
+  window:
+    width: 660
+    height: 400
+  contents:
+    - x: 180
+      y: 200
+      type: file
+    - x: 480
+      y: 200
+      type: link
+      path: /Applications
 linux:
   target:
     - AppImage
