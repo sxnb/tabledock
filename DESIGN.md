@@ -20,43 +20,43 @@ Defined as CSS custom properties in `@theme {}` (Tailwind v4). Override the full
 
 ### Dark theme (default)
 
-| Token | Value | Role |
-|---|---|---|
-| `--color-bg` | `#0a0c14` | App background |
-| `--color-surface` | `#11131f` | Card / panel surface |
-| `--color-surface-2` | `#181b2a` | Raised surface (inputs, hover backgrounds) |
-| `--color-surface-3` | `#1f2334` | Further raised (active items, tooltips) |
-| `--color-border` | `#262a3d` | Default border |
-| `--color-border-strong` | `#343a52` | Emphasized border (hover, tooltips) |
-| `--color-text` | `#e6e8f2` | Primary text |
-| `--color-muted` | `#8b90a8` | Secondary text, labels |
-| `--color-faint` | `#5b6076` | Placeholders, decorative hints |
-| `--color-accent` | `#8b7bff` | Primary interactive color |
-| `--color-accent-hover` | `#9c8eff` | Accent hover state |
-| `--color-accent-soft` | `#2a2550` | Accent tint for backgrounds |
-| `--color-blue` | `#5b8cff` | Informational, links |
-| `--color-danger` | `#ff6b81` | Destructive actions, errors |
-| `--color-ok` | `#4ade80` | Success states |
+| Token                   | Value      | Role                                      |
+| ----------------------- | ---------- | ----------------------------------------- |
+| `--color-bg`            | `#0a0c14`  | App background                            |
+| `--color-surface`       | `#11131f`  | Card / panel surface                      |
+| `--color-surface-2`     | `#181b2a`  | Raised surface (inputs, hover backgrounds)|
+| `--color-surface-3`     | `#1f2334`  | Further raised (active items, tooltips)   |
+| `--color-border`        | `#262a3d`  | Default border                            |
+| `--color-border-strong` | `#343a52`  | Emphasized border (hover, tooltips)       |
+| `--color-text`          | `#e6e8f2`  | Primary text                              |
+| `--color-muted`         | `#8b90a8`  | Secondary text, labels                    |
+| `--color-faint`         | `#5b6076`  | Placeholders, decorative hints            |
+| `--color-accent`        | `#8b7bff`  | Primary interactive color                 |
+| `--color-accent-hover`  | `#9c8eff`  | Accent hover state                        |
+| `--color-accent-soft`   | `#2a2550`  | Accent tint for backgrounds               |
+| `--color-blue`          | `#5b8cff`  | Informational, links                      |
+| `--color-danger`        | `#ff6b81`  | Destructive actions, errors               |
+| `--color-ok`            | `#4ade80`  | Success states                            |
 
 ### Light theme overrides
 
-| Token | Value |
-|---|---|
-| `--color-bg` | `#f4f5f8` |
-| `--color-surface` | `#ffffff` |
-| `--color-surface-2` | `#f0f1f5` |
-| `--color-surface-3` | `#e6e8ef` |
-| `--color-border` | `#dde0e8` |
-| `--color-border-strong` | `#c4c9d6` |
-| `--color-text` | `#1b1e2b` |
-| `--color-muted` | `#5b6076` |
-| `--color-faint` | `#9296a8` |
-| `--color-accent` | `#6d5dd3` |
-| `--color-accent-hover` | `#5d4dc0` |
-| `--color-accent-soft` | `#e8e4fb` |
-| `--color-blue` | `#3f6fd6` |
-| `--color-danger` | `#d83a4e` |
-| `--color-ok` | `#2f9e54` |
+| Token                   | Value      |
+| ----------------------- | ---------- |
+| `--color-bg`            | `#f4f5f8`  |
+| `--color-surface`       | `#ffffff`  |
+| `--color-surface-2`     | `#f0f1f5`  |
+| `--color-surface-3`     | `#e6e8ef`  |
+| `--color-border`        | `#dde0e8`  |
+| `--color-border-strong` | `#c4c9d6`  |
+| `--color-text`          | `#1b1e2b`  |
+| `--color-muted`         | `#5b6076`  |
+| `--color-faint`         | `#9296a8`  |
+| `--color-accent`        | `#6d5dd3`  |
+| `--color-accent-hover`  | `#5d4dc0`  |
+| `--color-accent-soft`   | `#e8e4fb`  |
+| `--color-blue`          | `#3f6fd6`  |
+| `--color-danger`        | `#d83a4e`  |
+| `--color-ok`            | `#2f9e54`  |
 
 Apply light theme via `document.documentElement.dataset.theme = 'light'`.
 
@@ -78,28 +78,28 @@ font-family: 'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, Monaco, monospace
 
 ### Text scale in use
 
-| Class | Size | Role |
-|---|---|---|
-| `text-[11px]` | 11px | Fine print, timestamps, secondary hints |
-| `text-xs` | 12px | Labels, badges, form help text |
-| `text-[13px]` | 13px | Body, inputs, buttons (base size) |
-| `text-sm` | 14px | Modal titles, section headings |
-| `text-lg` | 18px | Page headings (welcome screen) |
+| Class         | Size | Role                                   |
+| ------------- | ---- | -------------------------------------- |
+| `text-[11px]` | 11px | Fine print, timestamps, secondary hints|
+| `text-xs`     | 12px | Labels, badges, form help text         |
+| `text-[13px]` | 13px | Body, inputs, buttons (base size)      |
+| `text-sm`     | 14px | Modal titles, section headings         |
+| `text-lg`     | 18px | Page headings (welcome screen)         |
 
 ---
 
 ## Spacing & Sizing
 
-| Concept | Value |
-|---|---|
-| Standard control height | `h-9` (36px) |
-| Small control height | `h-7` (28px) |
-| Icon button size | `h-7 w-7` |
-| Standard border radius | `rounded-md` (6px) |
-| Card / modal border radius | `rounded-xl` (12px) |
-| Standard padding (inline controls) | `px-3.5` |
-| Small padding | `px-2.5` |
-| Form gap | `gap-1.5` between label and input; `gap-4` between fields |
+| Concept                            | Value                                                      |
+| ---------------------------------- | ---------------------------------------------------------- |
+| Standard control height            | `h-9` (36px)                                               |
+| Small control height               | `h-7` (28px)                                               |
+| Icon button size                   | `h-7 w-7`                                                  |
+| Standard border radius             | `rounded-md` (6px)                                         |
+| Card / modal border radius         | `rounded-xl` (12px)                                        |
+| Standard padding (inline controls) | `px-3.5`                                                   |
+| Small padding                      | `px-2.5`                                                   |
+| Form gap                           | `gap-1.5` between label and input; `gap-4` between fields  |
 
 ---
 
@@ -117,12 +117,12 @@ Four variants, two sizes.
 <Button size="sm">Small</Button>
 ```
 
-| Variant | Style |
-|---|---|
-| `primary` | `bg-accent text-white hover:bg-accent-hover`, subtle glow shadow |
-| `secondary` | `bg-surface-2 border border-border hover:bg-surface-3` |
-| `ghost` | `text-muted hover:text-text hover:bg-surface-2` |
-| `danger` | `text-danger border border-danger/40 hover:bg-danger/10` |
+| Variant     | Style                                                             |
+| ----------- | ----------------------------------------------------------------- |
+| `primary`   | `bg-accent text-white hover:bg-accent-hover`, subtle glow shadow  |
+| `secondary` | `bg-surface-2 border border-border hover:bg-surface-3`            |
+| `ghost`     | `text-muted hover:text-text hover:bg-surface-2`                   |
+| `danger`    | `text-danger border border-danger/40 hover:bg-danger/10`          |
 
 All variants share: `rounded-md font-medium transition-colors focus-visible:ring-2 focus-visible:ring-accent/60 disabled:opacity-60`.
 
@@ -473,21 +473,21 @@ Rendered with:
 
 [lucide-react](https://lucide.dev). Size conventions:
 
-| Context | Size |
-|---|---|
-| Inline with text | 13–14px |
-| Icon buttons | 15–16px |
-| Empty state / decorative | 24–28px |
-| Welcome screen logo-scale | 56px (`h-14 w-14`) |
+| Context                    | Size                |
+| -------------------------- | ------------------- |
+| Inline with text           | 13–14px             |
+| Icon buttons               | 15–16px             |
+| Empty state / decorative   | 24–28px             |
+| Welcome screen logo-scale  | 56px (`h-14 w-14`)  |
 
 ---
 
 ## Dependencies
 
-| Package | Purpose |
-|---|---|
-| `tailwindcss` v4 | Utility classes + design tokens via `@theme {}` |
-| `lucide-react` | Icons |
-| `@radix-ui/react-tooltip` | Accessible tooltip primitives |
-| `@radix-ui/react-context-menu` | Right-click context menus |
-| `clsx` + `tailwind-merge` (via `cn()`) | Conditional class merging |
+| Package                                 | Purpose                                          |
+| --------------------------------------- | ------------------------------------------------ |
+| `tailwindcss` v4                        | Utility classes + design tokens via `@theme {}`  |
+| `lucide-react`                          | Icons                                            |
+| `@radix-ui/react-tooltip`               | Accessible tooltip primitives                    |
+| `@radix-ui/react-context-menu`          | Right-click context menus                        |
+| `clsx` + `tailwind-merge` (via `cn()`)  | Conditional class merging                        |
