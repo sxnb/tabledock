@@ -297,6 +297,144 @@ A playful border-radius morph on hover. Starts/ends at 35% so the easing is smoo
 
 ---
 
+## Themed Sidebar with Noise Background
+
+The sidebar supports a user-configurable background color with a multi-stop mesh gradient and a pixelated noise overlay — similar to Arc browser's sidebar theming.
+
+### How it works
+
+Three layers stack inside a `relative overflow-hidden` container:
+
+1. **Mesh gradient** — three overlapping radial/linear gradients derived from a single base color using `lighten` and `darken` helpers.
+2. **Pixel noise** — a 128×128 canvas of random grayscale static, upscaled to 256px with `image-rendering: pixelated` for chunky 2×2 pixel blocks, blended with `mix-blend-mode: overlay` at a configurable opacity.
+3. **Content** — sits above both layers via `relative z-10`.
+
+### NoiseBackground component
+
+```tsx
+<aside className="relative flex w-64 flex-col overflow-hidden border-r border-border bg-surface">
+  <NoiseBackground color={sidebarBg.color} noise={sidebarBg.noise} />
+  <div className="relative z-10 flex min-h-0 flex-1 flex-col">
+    {/* sidebar content */}
+  </div>
+</aside>
+```
+
+Props:
+- `color: string | null` — hex background color. `null` renders nothing (no themed background).
+- `noise: number` — overlay opacity, `0..1`. Typically `0.04–0.15`.
+
+### Gradient mesh
+
+Built from a single base color using `lighten` / `darken` mix helpers:
+
+```ts
+function buildGradient(color: string): string {
+  return [
+    `radial-gradient(120% 75% at 0% 0%, ${lighten(color, 0.16)}, transparent 55%)`,
+    `radial-gradient(120% 75% at 100% 15%, ${lighten(color, 0.05)}, transparent 50%)`,
+    `linear-gradient(165deg, ${darken(color, 0.04)}, ${darken(color, 0.24)})`
+  ].join(', ')
+}
+```
+
+### Color helpers
+
+```ts
+// Mix a hex color toward a target RGB by `amount` (0..1)
+export const lighten = (hex: string, amount: number): string => mix(hex, [255, 255, 255], amount)
+export const darken  = (hex: string, amount: number): string => mix(hex, [0, 0, 0], amount)
+
+// Pick black (#000000) or white (#ffffff) for readable contrast (YIQ)
+export function contrastText(hex: string): '#000000' | '#ffffff' {
+  const rgb = hexToRgb(hex)
+  if (!rgb) return '#ffffff'
+  const yiq = (rgb[0] * 299 + rgb[1] * 587 + rgb[2] * 114) / 1000
+  return yiq >= 150 ? '#000000' : '#ffffff'
+}
+```
+
+### Adapting text and active states to the theme
+
+When a color is active, foreground text must switch to black or white for contrast. Active connection rows use a darkened, semi-transparent variant of the base color:
+
+```ts
+const themed  = Boolean(sidebarBg.color)
+const activeBg = sidebarBg.color ? `${darken(sidebarBg.color, 0.38)}80` : null  // 50% alpha
+const fg      = themed ? contrastText(sidebarBg.color) : null  // '#000000' | '#ffffff'
+const fgSoft  = fg ? `${fg}b3` : undefined  // ~70% alpha for secondary text
+```
+
+Apply inline styles conditionally:
+
+```tsx
+<span style={fg ? { color: fg } : undefined}>Label</span>
+<span style={fg ? { color: fgSoft } : undefined}>Secondary</span>
+
+{/* Active row */}
+<div style={active && activeBg ? { backgroundColor: activeBg, boxShadow: 'rgba(0,0,0,0.2) 0px 2px 8px' } : {}}>
+  ...
+</div>
+```
+
+Use the CSS classes `dd-sidebar-action`, `dd-conn-name`, `dd-conn-sub`, and `dd-conn-row` (defined in `main.css`) to handle the rest → text → muted color transition on hover without duplicating logic:
+
+```css
+.dd-sidebar-action { color: var(--dd-fg); }
+.dd-sidebar-action:hover { color: var(--color-text); }
+
+.dd-conn-name { color: var(--dd-fg); }
+.dd-conn-sub  { color: var(--dd-fg-soft); }
+.dd-conn-row:hover .dd-conn-name { color: var(--color-text); }
+.dd-conn-row:hover .dd-conn-sub  { color: var(--color-muted); }
+```
+
+Set the CSS variables on the sidebar element when a theme is active:
+
+```tsx
+<aside style={fg ? { '--dd-fg': fg, '--dd-fg-soft': fgSoft } as React.CSSProperties : undefined}>
+```
+
+### Noise generation
+
+The noise tile is generated once via canvas and cached as a PNG data URI:
+
+```ts
+let cachedNoise: string | null = null
+function pixelNoise(): string {
+  if (cachedNoise) return cachedNoise
+  const size = 128
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = size
+  const ctx = canvas.getContext('2d')!
+  const image = ctx.createImageData(size, size)
+  for (let i = 0; i < image.data.length; i += 4) {
+    const v = (Math.random() * 255) | 0
+    image.data[i] = image.data[i + 1] = image.data[i + 2] = v
+    image.data[i + 3] = 255
+  }
+  ctx.putImageData(image, 0, 0)
+  cachedNoise = canvas.toDataURL('image/png')
+  return cachedNoise
+}
+```
+
+Rendered with:
+
+```tsx
+<div
+  style={{
+    backgroundImage: `url("${pixelNoise()}")`,
+    backgroundSize: '256px 256px',   // 2× upscale → chunky 2px blocks
+    imageRendering: 'pixelated',
+    opacity: noise,
+    mixBlendMode: 'overlay'
+  }}
+/>
+```
+
+---
+
 ## Form patterns
 
 ### Label + control
