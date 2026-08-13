@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FolderOpen, CheckCircle2, XCircle } from 'lucide-react'
+import { FolderOpen, CheckCircle2, XCircle, Link2 } from 'lucide-react'
 import type {
   ConnectionConfig,
   DriverKind,
@@ -7,6 +7,7 @@ import type {
   SshConfig,
   SslConfig
 } from '@shared/types'
+import { parseConnectionUrl } from '@shared/connection-url'
 import { KIND_META, KIND_ORDER } from '@renderer/lib/kinds'
 import { useConnections } from '@renderer/store/connections'
 import { Modal } from './ui/Modal'
@@ -28,6 +29,9 @@ const COLOR_PRESETS = [
   '#93454e', // maroon
   '#834f6c' // plum
 ]
+
+/** Kinds whose connections can be described by a pasted URL. */
+const URL_KINDS: DriverKind[] = ['postgres', 'mysql', 'mariadb']
 
 interface ConnectionFormProps {
   open: boolean
@@ -62,6 +66,8 @@ export function ConnectionForm({ open, editing, onClose }: ConnectionFormProps):
   const [draft, setDraft] = useState<Draft>(() => editing ?? blankDraft())
   const [test, setTest] = useState<TestState>({ status: 'idle' })
   const [saving, setSaving] = useState(false)
+  const [url, setUrl] = useState('')
+  const [urlError, setUrlError] = useState<string | null>(null)
 
   // Re-seed the form whenever the modal is (re)opened for a different target.
   const seedKey = editing?.id ?? 'new'
@@ -70,6 +76,8 @@ export function ConnectionForm({ open, editing, onClose }: ConnectionFormProps):
     setLastSeed(seedKey)
     setDraft(editing ?? blankDraft())
     setTest({ status: 'idle' })
+    setUrl('')
+    setUrlError(null)
   }
 
   const meta = KIND_META[draft.kind]
@@ -118,6 +126,34 @@ export function ConnectionForm({ open, editing, onClose }: ConnectionFormProps):
       ]
     })
     if (path) setSsl({ [field]: path })
+  }
+
+  /**
+   * Fill the form from a pasted connection URL. The URL describes the whole
+   * endpoint, so the fields it can carry are all replaced — settings it cannot
+   * express (name, color, read-only, SSH tunnel) are left alone. On success the
+   * pasted text is cleared so the password does not linger in plain sight.
+   */
+  const applyUrl = (): void => {
+    try {
+      const parsed = parseConnectionUrl(url)
+      setDraft((d) => ({
+        ...d,
+        kind: parsed.kind,
+        host: parsed.host,
+        port: parsed.port,
+        user: parsed.user ?? '',
+        password: parsed.password ?? '',
+        database: parsed.database ?? '',
+        ssl: parsed.ssl ?? { enabled: false },
+        name: d.name.trim() || parsed.database || parsed.host
+      }))
+      setUrl('')
+      setUrlError(null)
+      setTest({ status: 'idle' })
+    } catch (err) {
+      setUrlError(err instanceof Error ? err.message : String(err))
+    }
   }
 
   const runTest = async (): Promise<void> => {
@@ -190,6 +226,18 @@ export function ConnectionForm({ open, editing, onClose }: ConnectionFormProps):
             </option>
           ))}
         </Select>
+
+        {URL_KINDS.includes(draft.kind) && (
+          <ConnectionUrlSection
+            value={url}
+            error={urlError}
+            onChange={(v) => {
+              setUrl(v)
+              setUrlError(null)
+            }}
+            onApply={applyUrl}
+          />
+        )}
 
         <div className="flex flex-col gap-1.5">
           <span className="text-xs font-medium text-muted">Color</span>
@@ -297,6 +345,52 @@ export function ConnectionForm({ open, editing, onClose }: ConnectionFormProps):
         )}
       </div>
     </Modal>
+  )
+}
+
+function ConnectionUrlSection({
+  value,
+  error,
+  onChange,
+  onApply
+}: {
+  value: string
+  error: string | null
+  onChange: (value: string) => void
+  onApply: () => void
+}): React.JSX.Element {
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border border-border bg-surface-2/40 p-3">
+      <span className="text-xs font-medium text-muted">Connection string</span>
+      <div className="flex gap-2">
+        <Input
+          placeholder="postgresql://user:password@host:5432/database"
+          value={value}
+          spellCheck={false}
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              onApply()
+            }
+          }}
+        />
+        <Button variant="secondary" onClick={onApply} disabled={!value.trim()} className="shrink-0">
+          <Link2 size={14} />
+          Fill
+        </Button>
+      </div>
+      {error ? (
+        <p className="text-xs leading-relaxed text-danger">{error}</p>
+      ) : (
+        <p className="text-xs leading-relaxed text-faint">
+          Paste a PostgreSQL, MySQL, or MariaDB URL to fill in the fields below.
+        </p>
+      )}
+    </div>
   )
 }
 
