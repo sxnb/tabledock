@@ -1,7 +1,7 @@
 import sql from 'mssql'
 import { buildTls } from '../ssl'
 import { buildFilter } from '../filter'
-import { buildInserts } from '../sqlformat'
+import { insertChunks } from '../sqlformat'
 import { columnDdl, createTableSql } from '../ddl'
 import type {
   ColumnMeta,
@@ -458,27 +458,71 @@ export class SqlServerDriver implements RelationalDriver {
     await pool.request().batch(sql_)
   }
 
-  async dumpDatabase(database?: string, options?: DumpOptions): Promise<string> {
+  async *dumpDatabase(database?: string, options?: DumpOptions): AsyncGenerator<string> {
     const target = database || this.currentDatabase
     const pool = await this.poolFor(target)
     const tables = await this.listTables(target)
-    const parts: string[] = [
-      `-- TableDock data dump of ${target} — ${new Date().toISOString()}`,
-      '-- Note: schema (DDL) is not included; data only.\n'
-    ]
+    const includeSchema = options?.includeSchema ?? true
+    yield `-- TableDock dump of ${target} — ${new Date().toISOString()}\n`
+    yield includeSchema
+      ? '-- Note: table DDL is synthesized; indexes and foreign keys are not included.\n\n'
+      : '-- Note: schema (DDL) is not included; data only.\n\n'
     if (options?.includeCreateDatabase) {
-      parts.push(`CREATE DATABASE ${quoteIdent(target)};\nGO\nUSE ${quoteIdent(target)};\nGO\n`)
+      yield `CREATE DATABASE ${quoteIdent(target)};\nGO\nUSE ${quoteIdent(target)};\nGO\n\n`
     }
     for (const t of tables) {
-      const qualified = `${quoteIdent('dbo')}.${quoteIdent(t)}`
-      const res = await pool.request().query<Record<string, unknown>>(`SELECT * FROM ${qualified}`)
-      const columns = orderedColumns(res.recordset)
-      const data = res.recordset.map((r) => columns.map((c) => r[c]))
-      const inserts = buildInserts(qualified, columns, data, quoteIdent)
-      if (inserts) parts.push(inserts)
+      if (includeSchema) {
+        const qualified = `${quoteIdent('dbo')}.${quoteIdent(t)}`
+        // OBJECT_ID rather than DROP TABLE IF EXISTS, which needs SQL Server 2016+.
+        yield `IF OBJECT_ID('${qualified.replace(/'/g, "''")}', 'U') IS NOT NULL DROP TABLE ${qualified};\n`
+        const { columns } = await this.getTableStructure(t, target)
+        const primaryKeys = columns.filter((c) => c.isPrimaryKey).map((c) => c.name)
+        yield `${buildMssqlCreate(t, columns, primaryKeys)}\n`
+      }
+      yield* streamTableInserts(pool, t)
+      if (includeSchema) yield '\n'
     }
-    return parts.join('\n')
   }
+}
+
+/**
+ * Stream one table's rows as INSERT statements.
+ *
+ * `toReadableStream()` puts the request in streaming mode with real
+ * backpressure, so the recordset is never buffered whole. Column order comes
+ * from INFORMATION_SCHEMA because the driver needs it before the first row.
+ */
+async function* streamTableInserts(
+  pool: sql.ConnectionPool,
+  table: string
+): AsyncGenerator<string> {
+  const qualified = `${quoteIdent('dbo')}.${quoteIdent(table)}`
+  const colRes = await pool
+    .request()
+    .input('t', table)
+    .query<{ COLUMN_NAME: string }>(
+      `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = @t
+       ORDER BY ORDINAL_POSITION`
+    )
+  const columns = colRes.recordset.map((c) => c.COLUMN_NAME)
+
+  const request = pool.request()
+  const stream = request.toReadableStream()
+  // Kick the query off without awaiting it: in stream mode rows arrive on the
+  // stream and failures come through as an 'error' event that
+  // toReadableStream() forwards, so the returned promise carries nothing.
+  void request.query(`SELECT * FROM ${qualified}`)
+  async function* rows(): AsyncGenerator<unknown[]> {
+    try {
+      for await (const row of stream as AsyncIterable<Record<string, unknown>>) {
+        yield columns.map((c) => row[c])
+      }
+    } finally {
+      if (!stream.readableEnded) request.cancel()
+    }
+  }
+  yield* insertChunks(qualified, columns, rows(), quoteIdent)
 }
 
 /** Format a SQL Server column's type with length/precision, e.g. varchar(255). */

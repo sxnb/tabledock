@@ -27,7 +27,16 @@ welcome screen points you at the command palette.
 
 Click **New connection** (or `⌘/Ctrl + K` → "New connection") to add a database.
 Pick the type, fill in the host/port/credentials, optionally **Test** the
-connection, then **Save**. Connections support:
+connection, then **Save**.
+
+For PostgreSQL, MySQL, and MariaDB you can skip the typing: paste a
+`postgresql://user:password@host:5432/database` URL into **Connection string**
+and hit **Fill**. The host, port, user, password, database, and any `sslmode` /
+`ssl-mode` setting are read out of the URL (query parameters such as `dbname`
+and `sslrootcert` are honoured too), and the driver type switches to match the
+scheme. Review the filled-in fields, then **Test** and **Save** as usual.
+
+Connections support:
 
 - **SSL/TLS** with CA, client certificate, and key files.
 - **SSH tunneling** (password, private key, or SSH agent).
@@ -58,6 +67,38 @@ statement. From here (and the table list) you can create databases and tables,
 add or drop columns, and rename or drop tables.
 
 ![Table structure](screenshots/table-structure.png)
+
+## Creating a dump
+
+**Create database dump…** in the connection menu writes the database to a file —
+SQL for relational connections, JSON for MongoDB, a command stream for Redis.
+
+For relational connections the dump is meant to restore into an **empty database
+on another server**, so it carries the whole schema, not just the data:
+
+|                                     | PostgreSQL | MySQL / MariaDB           |
+| ----------------------------------- | ---------- | ------------------------- |
+| Tables, columns, defaults           | ✅         | ✅                        |
+| Primary keys, unique, check         | ✅         | ✅                        |
+| Enum / domain / composite types     | ✅         | ✅ (inline in the column) |
+| Sequences & auto-increment position | ✅         | ✅                        |
+| Indexes                             | ✅         | ✅                        |
+| Foreign keys                        | ✅         | ✅                        |
+| Views (dependency-ordered)          | ✅         | ✅                        |
+| Functions / procedures              | ✅         | ✅                        |
+| Triggers                            | ✅         | ✅                        |
+| Extensions                          | ✅         | —                         |
+| Events                              | —          | ✅                        |
+
+Statements are ordered so the restore works: types, sequences, and functions come
+first, then tables and data, then indexes, foreign keys, views, and triggers.
+MySQL dumps turn `FOREIGN_KEY_CHECKS` off for the duration and strip `DEFINER`
+clauses, so the script does not depend on a user existing on the target server.
+
+Turn **Include schema** off for a data-only dump of `INSERT` statements.
+
+Two limits worth knowing: only the `public` schema is dumped for PostgreSQL, and
+roles, grants, and tablespaces are never included.
 
 ## Running SQL
 

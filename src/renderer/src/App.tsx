@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { ConnectionConfig } from '@shared/types'
+import { KIND_META } from './lib/kinds'
 import { useConnections } from './store/connections'
 import { useSettings } from './store/settings'
 import { useAi } from './store/ai'
@@ -130,11 +131,14 @@ function App(): React.JSX.Element {
   const runImport = async (paths: string[]): Promise<void> => {
     if (activeBackendId) await window.api.db.importSqlFiles(activeBackendId, paths, activeDb)
   }
-  const runDump = async (includeCreateDatabase: boolean): Promise<void> => {
+  const runDump = async (options: {
+    includeCreateDatabase: boolean
+    includeSchema: boolean
+  }): Promise<void> => {
     if (activeBackendId) {
       await window.api.db.createDump(activeBackendId, {
         database: activeDb,
-        includeCreateDatabase,
+        ...options,
         name: activeName
       })
     }
@@ -178,6 +182,7 @@ function App(): React.JSX.Element {
             onClose={() => setDumpOpen(false)}
             onCreate={runDump}
             supportsCreateDatabase={activeKind === 'mysql' || activeKind === 'postgres'}
+            supportsSchema={Boolean(activeKind && KIND_META[activeKind].relational)}
           />
         )}
         <SettingsModal

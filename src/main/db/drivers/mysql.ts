@@ -1,8 +1,12 @@
 import mysql from 'mysql2/promise'
+import type { Readable } from 'stream'
 import { buildTls } from '../ssl'
 import { buildFilter } from '../filter'
 import { columnDdl, createTableSql } from '../ddl'
-import { buildInserts } from '../sqlformat'
+import { insertChunks } from '../sqlformat'
+import { DUMP_BATCH_ROWS } from '../dump'
+import { hasDelimiterDirective, splitSqlScript } from '../sqlscript'
+import * as schema from './mysql-schema'
 import type {
   ColumnMeta,
   ConnectionConfig,
@@ -26,9 +30,26 @@ import type {
 
 const SYSTEM_DATABASES = new Set(['information_schema', 'mysql', 'performance_schema', 'sys'])
 
+/**
+ * The callback-style connection sitting under mysql2's promise wrapper. Only it
+ * can hand back a `Query` with `.stream()`; the promise typings describe the
+ * wrapper's buffering `query()` instead, so the cast to this is deliberate.
+ */
+interface RawQueryable {
+  query(options: mysql.QueryOptions): { stream(options?: { highWaterMark?: number }): Readable }
+}
+
 /** Wrap an identifier in backticks, escaping embedded backticks. */
 function quoteIdent(name: string): string {
   return '`' + name.replace(/`/g, '``') + '`'
+}
+
+/** Emit a labelled group of statements, or nothing when the group is empty. */
+function* section(title: string, statements: string[]): Generator<string> {
+  if (statements.length === 0) return
+  yield `-- ${title}\n`
+  for (const statement of statements) yield `${statement}\n`
+  yield '\n'
 }
 
 /** Qualify a table with its database when one is known. */
@@ -290,39 +311,98 @@ export class MySqlDriver implements RelationalDriver {
       ...(tls ? { ssl: tls } : {})
     })
     try {
-      await conn.query(sql)
+      // DELIMITER is a client-side directive the server rejects, so a script
+      // using it (dumps with triggers or routines) is split and run statement
+      // by statement instead of shipped as one multi-statement query.
+      if (hasDelimiterDirective(sql)) {
+        for (const statement of splitSqlScript(sql)) await conn.query(statement)
+      } else {
+        await conn.query(sql)
+      }
     } finally {
       await conn.end()
     }
   }
 
-  async dumpDatabase(database?: string, options?: DumpOptions): Promise<string> {
+  /**
+   * Dump the database as a restorable script.
+   *
+   * `SHOW CREATE TABLE` embeds foreign keys in the table definition, so tables
+   * cannot always be created in name order — the restore turns FK checks off for
+   * the duration instead, which is what mysqldump does. Views, triggers,
+   * routines, and events follow the data.
+   */
+  async *dumpDatabase(database?: string, options?: DumpOptions): AsyncGenerator<string> {
     const target = database || this.config.database
     if (!target) throw new Error('No database selected')
-    const tables = await this.listTables(target)
-    const parts: string[] = [`-- TableDock dump of \`${target}\` — ${new Date().toISOString()}\n`]
+    const includeSchema = options?.includeSchema ?? true
+    const { tables, views } = await schema.listTablesAndViews(this.db, target)
+
+    yield `-- TableDock dump of \`${target}\` — ${new Date().toISOString()}\n`
+    if (!includeSchema) yield '-- Note: schema (DDL) is not included; data only.\n'
+    yield '\n'
     if (options?.includeCreateDatabase) {
-      parts.push(`CREATE DATABASE IF NOT EXISTS ${quoteIdent(target)};`)
-      parts.push(`USE ${quoteIdent(target)};\n`)
+      yield `CREATE DATABASE IF NOT EXISTS ${quoteIdent(target)};\n`
+      yield `USE ${quoteIdent(target)};\n\n`
     }
+
+    yield 'SET NAMES utf8mb4;\n'
+    yield 'SET FOREIGN_KEY_CHECKS = 0;\n\n'
+
     for (const t of tables) {
-      const qualified = `${quoteIdent(target)}.${quoteIdent(t)}`
-      const [createRows] = await this.db.query<mysql.RowDataPacket[]>(
-        `SHOW CREATE TABLE ${qualified}`
-      )
-      const ddl = String(createRows[0]?.['Create Table'] ?? '')
-      parts.push(`DROP TABLE IF EXISTS ${quoteIdent(t)};`)
-      if (ddl) parts.push(`${ddl};`)
-      const [rows, fields] = await this.db.query<mysql.RowDataPacket[]>(
-        `SELECT * FROM ${qualified}`
-      )
-      const columns = fields.map((f) => f.name)
-      const data = rows.map((r) => columns.map((c) => (r as Record<string, unknown>)[c]))
-      const inserts = buildInserts(quoteIdent(t), columns, data, quoteIdent)
-      if (inserts) parts.push(inserts)
-      parts.push('')
+      if (includeSchema) {
+        const [createRows] = await this.db.query<mysql.RowDataPacket[]>(
+          `SHOW CREATE TABLE ${quoteIdent(target)}.${quoteIdent(t)}`
+        )
+        const ddl = String(createRows[0]?.['Create Table'] ?? '')
+        yield `-- Table: ${t}\n`
+        yield `DROP TABLE IF EXISTS ${quoteIdent(t)};\n`
+        if (ddl) yield `${ddl};\n`
+      }
+      yield* this.streamTableInserts(target, t)
+      yield '\n'
     }
-    return parts.join('\n')
+
+    if (includeSchema) {
+      const [viewSql, triggers, routines, events] = await Promise.all([
+        schema.viewDdl(this.db, target, views),
+        schema.triggerDdl(this.db, target),
+        schema.routineDdl(this.db, target),
+        schema.eventDdl(this.db, target)
+      ])
+      yield* section('Views', viewSql)
+      yield* section('Routines', routines)
+      yield* section('Triggers', triggers)
+      yield* section('Events', events)
+    }
+
+    yield 'SET FOREIGN_KEY_CHECKS = 1;\n'
+  }
+
+  /**
+   * Stream one table's rows as INSERT statements.
+   *
+   * mysql2's promise wrapper buffers a whole result set, so we drop to the
+   * underlying callback connection, which exposes a row stream. The connection
+   * is destroyed rather than released if we stop early, since a half-consumed
+   * query would otherwise poison the pool.
+   */
+  private async *streamTableInserts(database: string, table: string): AsyncGenerator<string> {
+    const qualified = `${quoteIdent(database)}.${quoteIdent(table)}`
+    const [colRows] = await this.db.query<mysql.RowDataPacket[]>(`SHOW COLUMNS FROM ${qualified}`)
+    const columns = colRows.map((r) => String(r.Field))
+    const conn = await this.db.getConnection()
+    let drained = false
+    try {
+      const rows = (conn.connection as unknown as RawQueryable)
+        .query({ sql: `SELECT * FROM ${qualified}`, rowsAsArray: true })
+        .stream({ highWaterMark: DUMP_BATCH_ROWS })
+      yield* insertChunks(quoteIdent(table), columns, rows, quoteIdent)
+      drained = true
+    } finally {
+      if (drained) conn.release()
+      else conn.destroy()
+    }
   }
 
   async getSchemaGraph(database?: string): Promise<SchemaGraph> {

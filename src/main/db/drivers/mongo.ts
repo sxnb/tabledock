@@ -1,5 +1,6 @@
 import { MongoClient, type MongoClientOptions } from 'mongodb'
 import { EJSON } from 'bson'
+import { chunked } from '../dump'
 import type {
   ConnectionConfig,
   MongoCollectionStats,
@@ -202,16 +203,32 @@ export class MongoDriver implements MongoDriverApi {
       .deleteOne({ _id: _id as never })
   }
 
-  async dumpJson(database: string): Promise<string> {
+  dumpJson(database: string): AsyncIterable<string> {
+    return chunked(this.dumpPieces(database))
+  }
+
+  /**
+   * Emit the dump as small pieces. Each collection is walked with a cursor and
+   * serialized a document at a time — `toArray()` plus a single `EJSON.stringify`
+   * would hold the whole collection, then its whole JSON text, in memory.
+   */
+  private async *dumpPieces(database: string): AsyncGenerator<string> {
     const db = this.handle.db(database)
     const collections = await this.listCollections(database)
-    const parts: string[] = [`// TableDock dump of ${database} — ${new Date().toISOString()}\n`]
+    yield `// TableDock dump of ${database} — ${new Date().toISOString()}\n\n`
     for (const name of collections) {
-      const docs = await db.collection(name).find({}).toArray()
-      parts.push(`// collection: ${name}`)
-      parts.push(EJSON.stringify(docs, undefined, 2))
-      parts.push('')
+      yield `// collection: ${name}\n[\n`
+      let first = true
+      for await (const doc of db.collection(name).find({})) {
+        yield `${first ? '' : ',\n'}${indent(EJSON.stringify(doc, undefined, 2))}`
+        first = false
+      }
+      yield '\n]\n\n'
     }
-    return parts.join('\n')
   }
+}
+
+/** Indent a document's lines so it nests inside the surrounding JSON array. */
+function indent(json: string): string {
+  return json.replace(/^/gm, '  ')
 }

@@ -1,6 +1,7 @@
 import { ipcMain, dialog, BrowserWindow } from 'electron'
 import { readFileSync, writeFileSync } from 'fs'
 import { connectionManager } from './manager'
+import { writeDump } from './dump'
 import {
   isMongoDriver,
   isRedisDriver,
@@ -160,15 +161,15 @@ export function registerDbIpc(): void {
       ? await dialog.showSaveDialog(win, saveOptions(params.name, stamp, ext))
       : await dialog.showSaveDialog(saveOptions(params.name, stamp, ext))
     if (save.canceled || !save.filePath) return null
-    let content = ''
-    if (isRedisDriver(driver)) content = await driver.dumpKeyspace()
-    else if (isMongoDriver(driver)) content = await driver.dumpJson(params.database || '')
-    else if (isRelationalDriver(driver)) {
-      content = await driver.dumpDatabase(params.database, {
-        includeCreateDatabase: params.includeCreateDatabase
-      })
-    }
-    writeFileSync(save.filePath, content, 'utf-8')
+    const chunks = isRedisDriver(driver)
+      ? driver.dumpKeyspace()
+      : isMongoDriver(driver)
+        ? driver.dumpJson(params.database || '')
+        : driver.dumpDatabase(params.database, {
+            includeCreateDatabase: params.includeCreateDatabase,
+            includeSchema: params.includeSchema
+          })
+    await writeDump(save.filePath, chunks)
     return save.filePath
   })
 

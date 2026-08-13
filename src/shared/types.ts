@@ -183,11 +183,17 @@ export interface InsertRowParams {
 export interface DumpOptions {
   /** Prepend a CREATE DATABASE statement (MySQL/PostgreSQL only). */
   includeCreateDatabase?: boolean
+  /**
+   * Emit each table's DROP TABLE / CREATE TABLE alongside its data.
+   * Defaults to true — omit it for a data-only dump.
+   */
+  includeSchema?: boolean
 }
 
 export interface CreateDumpParams {
   database?: string
   includeCreateDatabase: boolean
+  includeSchema: boolean
   /** Connection name, used for the default dump filename. */
   name?: string
 }
