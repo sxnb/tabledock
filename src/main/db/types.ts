@@ -51,8 +51,11 @@ export interface RelationalDriver {
   runQuery(sql: string, database?: string): Promise<QueryResult>
   /** Execute a multi-statement SQL script (used by SQL import). */
   runScript(sql: string, database?: string): Promise<void>
-  /** Produce a SQL dump (schema where available + data) for the database. */
-  dumpDatabase(database?: string, options?: DumpOptions): Promise<string>
+  /**
+   * Produce a SQL dump (schema where available + data) for the database,
+   * streamed in chunks — a dump can be far larger than memory.
+   */
+  dumpDatabase(database?: string, options?: DumpOptions): AsyncIterable<string>
 }
 
 /** Redis driver — non-relational, key/value oriented. */
@@ -69,8 +72,8 @@ export interface RedisDriverApi {
   deleteKey(key: string): Promise<void>
   renameKey(key: string, newKey: string): Promise<void>
   setKeyTtl(key: string, seconds: number | null): Promise<void>
-  /** Export the current database's keyspace as Redis commands. */
-  dumpKeyspace(): Promise<string>
+  /** Export the current database's keyspace as Redis commands, streamed in chunks. */
+  dumpKeyspace(): AsyncIterable<string>
 }
 
 /** MongoDB driver — document-oriented. Documents are passed as Extended JSON. */
@@ -97,8 +100,8 @@ export interface MongoDriverApi {
   insertDocument(database: string, collection: string, json: string): Promise<void>
   updateDocument(database: string, collection: string, id: string, json: string): Promise<void>
   deleteDocument(database: string, collection: string, id: string): Promise<void>
-  /** Export all collections as an Extended-JSON document. */
-  dumpJson(database: string): Promise<string>
+  /** Export all collections as an Extended-JSON document, streamed in chunks. */
+  dumpJson(database: string): AsyncIterable<string>
 }
 
 export type AnyDriver = RelationalDriver | RedisDriverApi | MongoDriverApi

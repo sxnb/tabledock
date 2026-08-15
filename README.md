@@ -42,6 +42,7 @@ Browse, query, edit, and visualize your databases — all from one minimalist wo
 ### 🔌 Connections
 
 - Save connections for **MySQL, MariaDB, PostgreSQL, SQL Server, MongoDB, Redis, and SQLite** and reopen them instantly on relaunch.
+- **Paste a connection string** — a `postgresql://`, `postgres://`, `mysql://`, or `mariadb://` URL fills in the host, port, credentials, database, and TLS settings in one step.
 - Passwords encrypted at rest via the OS keychain (Electron `safeStorage`) — never stored in plaintext.
 - Optional **SSL/TLS** with CA, client certificate, and key files.
 - **SSH tunneling** with password, private-key, or SSH-agent authentication (secrets encrypted alongside the connection).
@@ -66,6 +67,7 @@ Browse, query, edit, and visualize your databases — all from one minimalist wo
 - **Export results** to **CSV or JSON** — the entire table or full filtered/sorted set, not just the visible page.
 - **Import CSV / JSON** into a table — pick a file, auto-map columns (with per-column overrides), preview, and bulk-insert.
 - **Import SQL** scripts (drag-and-drop or file picker) and **create dumps** (SQL for relational, JSON for Mongo, command stream for Redis) via the native menu.
+- Relational dumps are **restorable into an empty database** — types, sequences, tables, constraints, indexes, views, routines, and triggers are emitted in dependency order alongside the data, and can be switched off for a data-only dump.
 
 ### ⌨️ SQL editor
 

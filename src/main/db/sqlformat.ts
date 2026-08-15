@@ -1,3 +1,5 @@
+import { chunked } from './dump'
+
 /** Format a raw DB value as a SQL literal for dumps. */
 export function sqlLiteral(value: unknown): string {
   if (value == null) return 'NULL'
@@ -9,21 +11,30 @@ export function sqlLiteral(value: unknown): string {
   return `'${String(value).replace(/'/g, "''")}'`
 }
 
-/** Build INSERT statements for a set of rows aligned with `columns`. */
-export function buildInserts(
+/**
+ * Build INSERT statements for `rows` aligned with `columns`, yielded as chunks.
+ *
+ * `rows` is consumed lazily — pass a cursor or row stream so neither the table
+ * nor the SQL text for it is ever held in memory in one piece.
+ */
+export function insertChunks(
   qualifiedTable: string,
   columns: string[],
-  rows: unknown[][],
-  quoteIdent: (name: string) => string
-): string {
-  if (rows.length === 0) return ''
+  rows: AsyncIterable<unknown[]> | Iterable<unknown[]>,
+  quoteIdent: (name: string) => string,
+  /**
+   * Dialect-specific value formatter; defaults to the portable `sqlLiteral`.
+   * Receives the column's index so a driver can format by declared column type —
+   * the JavaScript value alone is not always enough to tell types apart.
+   */
+  literal: (value: unknown, columnIndex: number) => string = sqlLiteral
+): AsyncGenerator<string> {
   const colList = columns.map(quoteIdent).join(', ')
-  return (
-    rows
-      .map(
-        (r) =>
-          `INSERT INTO ${qualifiedTable} (${colList}) VALUES (${r.map(sqlLiteral).join(', ')});`
-      )
-      .join('\n') + '\n'
-  )
+  async function* statements(): AsyncGenerator<string> {
+    for await (const row of rows) {
+      const values = row.map((value, i) => literal(value, i)).join(', ')
+      yield `INSERT INTO ${qualifiedTable} (${colList}) VALUES (${values});\n`
+    }
+  }
+  return chunked(statements())
 }

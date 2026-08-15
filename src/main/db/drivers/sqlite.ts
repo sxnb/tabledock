@@ -1,12 +1,13 @@
 import Database from 'better-sqlite3'
 import { basename } from 'path'
 import { buildFilter } from '../filter'
-import { buildInserts } from '../sqlformat'
+import { insertChunks } from '../sqlformat'
 import { columnDdl, createTableSql } from '../ddl'
 import type {
   ColumnMeta,
   ConnectionConfig,
   DeleteRowParams,
+  DumpOptions,
   InsertRowParams,
   GetRowsOptions,
   QueryResult,
@@ -224,7 +225,7 @@ export class SqliteDriver implements RelationalDriver {
     this.handle.exec(sql)
   }
 
-  async dumpDatabase(): Promise<string> {
+  async *dumpDatabase(_database?: string, options?: DumpOptions): AsyncGenerator<string> {
     const tables = this.handle
       .prepare(
         `SELECT name, sql FROM sqlite_master
@@ -232,21 +233,23 @@ export class SqliteDriver implements RelationalDriver {
          ORDER BY name`
       )
       .all() as { name: string; sql: string }[]
-    const parts: string[] = [
-      `-- TableDock dump of ${basename(this.config.filePath || 'database')} — ${new Date().toISOString()}\n`
-    ]
+    yield `-- TableDock dump of ${basename(this.config.filePath || 'database')} — ${new Date().toISOString()}\n\n`
     for (const { name, sql } of tables) {
-      parts.push(`DROP TABLE IF EXISTS ${quoteIdent(name)};`)
-      if (sql) parts.push(`${sql};`)
+      if (options?.includeSchema ?? true) {
+        yield `DROP TABLE IF EXISTS ${quoteIdent(name)};\n`
+        if (sql) yield `${sql};\n`
+      }
       const stmt = this.handle.prepare(`SELECT * FROM ${quoteIdent(name)}`)
       const cols = stmt.columns().map((c) => c.name)
-      const rows = stmt.all() as Record<string, unknown>[]
-      const data = rows.map((r) => cols.map((c) => r[c]))
-      const inserts = buildInserts(quoteIdent(name), cols, data, quoteIdent)
-      if (inserts) parts.push(inserts)
-      parts.push('')
+      // iterate() walks the table row by row; all() would materialize it first.
+      function* rows(): Generator<unknown[]> {
+        for (const row of stmt.iterate() as IterableIterator<Record<string, unknown>>) {
+          yield cols.map((c) => row[c])
+        }
+      }
+      yield* insertChunks(quoteIdent(name), cols, rows(), quoteIdent)
+      yield '\n'
     }
-    return parts.join('\n')
   }
 
   async getSchemaGraph(): Promise<SchemaGraph> {

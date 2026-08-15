@@ -1,7 +1,9 @@
 import pg from 'pg'
 import { buildTls } from '../ssl'
 import { buildFilter } from '../filter'
-import { buildInserts } from '../sqlformat'
+import { insertChunks, sqlLiteral } from '../sqlformat'
+import { DUMP_BATCH_ROWS } from '../dump'
+import * as schema from './postgres-schema'
 import { columnDdl, createTableSql } from '../ddl'
 import type {
   ColumnMeta,
@@ -29,6 +31,84 @@ const SYSTEM_DATABASES = new Set(['template0', 'template1'])
 
 function quoteIdent(name: string): string {
   return '"' + name.replace(/"/g, '""') + '"'
+}
+
+function qualify(table: string): string {
+  return `${quoteIdent('public')}.${quoteIdent(table)}`
+}
+
+/** Emit a labelled group of statements, or nothing when the group is empty. */
+function* section(title: string, statements: string[]): Generator<string> {
+  if (statements.length === 0) return
+  yield `-- ${title}\n`
+  for (const statement of statements) yield `${statement}\n`
+  yield '\n'
+}
+
+/** How a column's value has to be written, decided by its Postgres type. */
+type PgColumnKind = 'array' | 'json' | 'other'
+
+/**
+ * Postgres value literals, chosen by the column's declared type.
+ *
+ * The JavaScript value on its own is ambiguous: node-pg parses both a `text[]`
+ * and a `jsonb` holding `[…]` into a plain JS array, and the two need opposite
+ * syntax — `'{a,b}'` versus `'["a","b"]'`. Writing one as the other is what makes
+ * a restore fail with "invalid input syntax for type json". Buffers likewise need
+ * `'\x…'`, since `X'…'` is a bit-string literal in Postgres.
+ */
+function pgLiteral(value: unknown, kind: PgColumnKind): string {
+  if (value == null) return 'NULL'
+  if (Buffer.isBuffer(value)) return `'\\x${value.toString('hex')}'::bytea`
+  // A json column takes JSON text whatever the value is — including a bare
+  // string, number, or boolean, none of which are valid JSON unquoted.
+  if (kind === 'json') return `'${JSON.stringify(value).replace(/'/g, "''")}'`
+  if (kind === 'array' && Array.isArray(value)) {
+    return `'${pgArrayBody(value).replace(/'/g, "''")}'`
+  }
+  return sqlLiteral(value)
+}
+
+/**
+ * Classify result columns by type OID, so values can be written in the syntax
+ * their column actually expects. `typcategory` 'A' is Postgres's own marker for
+ * array types, which covers arrays of user-defined types too.
+ */
+async function columnKinds(pool: pg.Pool, typeOids: number[]): Promise<PgColumnKind[]> {
+  const unique = [...new Set(typeOids)]
+  if (unique.length === 0) return []
+  const res = await pool.query<{ oid: string; typname: string; typcategory: string }>(
+    `SELECT oid::text, typname, typcategory FROM pg_type WHERE oid = ANY($1::oid[])`,
+    [unique]
+  )
+  const byOid = new Map<number, PgColumnKind>()
+  for (const row of res.rows) {
+    const kind: PgColumnKind =
+      row.typname === 'json' || row.typname === 'jsonb'
+        ? 'json'
+        : row.typcategory === 'A'
+          ? 'array'
+          : 'other'
+    byOid.set(Number(row.oid), kind)
+  }
+  return typeOids.map((oid) => byOid.get(oid) ?? 'other')
+}
+
+/** Render a JS array as a Postgres array literal body, e.g. `{a,b,NULL}`. */
+function pgArrayBody(value: unknown[]): string {
+  const elements = value.map((element) => {
+    if (element == null) return 'NULL'
+    if (Array.isArray(element)) return pgArrayBody(element)
+    if (Buffer.isBuffer(element)) return `"\\\\x${element.toString('hex')}"`
+    const text =
+      typeof element === 'object' ? JSON.stringify(element) : String(element as string | number)
+    // Quote anything that would otherwise be misread as a delimiter or NULL.
+    if (text === '' || /[{}",\\\s]/.test(text) || text.toUpperCase() === 'NULL') {
+      return `"${text.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
+    }
+    return text
+  })
+  return `{${elements.join(',')}}`
 }
 
 /**
@@ -375,28 +455,73 @@ export class PostgresDriver implements RelationalDriver {
     await pool.query(sql)
   }
 
-  async dumpDatabase(database?: string, options?: DumpOptions): Promise<string> {
+  /**
+   * Dump the database as a restorable script.
+   *
+   * Statements are grouped into phases rather than emitted table-by-table,
+   * because a restore into an empty database has a required order: the types,
+   * functions, and sequences a table's definition mentions must already exist,
+   * while foreign keys and indexes can only be added once every table is there.
+   */
+  async *dumpDatabase(database?: string, options?: DumpOptions): AsyncGenerator<string> {
     const target = database || this.currentDatabase
     const pool = await this.poolFor(target)
-    const tablesRes = await pool.query<{ table_name: string }>(
-      `SELECT table_name FROM information_schema.tables
-       WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
-       ORDER BY table_name`
-    )
-    const parts: string[] = [
-      `-- TableDock data dump of ${target} — ${new Date().toISOString()}`,
-      '-- Note: schema (DDL) is not included; data only.\n'
-    ]
-    if (options?.includeCreateDatabase) parts.push(`CREATE DATABASE ${quoteIdent(target)};\n`)
-    for (const { table_name } of tablesRes.rows) {
-      const qualified = `${quoteIdent('public')}.${quoteIdent(table_name)}`
-      const res = await pool.query(`SELECT * FROM ${qualified}`)
-      const columns = res.fields.map((f) => f.name)
-      const data = res.rows.map((r: Record<string, unknown>) => columns.map((c) => r[c]))
-      const inserts = buildInserts(qualified, columns, data, quoteIdent)
-      if (inserts) parts.push(inserts)
+    const tables = await this.listTables(target)
+    const includeSchema = options?.includeSchema ?? true
+
+    yield `-- TableDock dump of ${target} — ${new Date().toISOString()}\n`
+    if (!includeSchema) yield '-- Note: schema (DDL) is not included; data only.\n'
+    yield '\n'
+    if (options?.includeCreateDatabase) yield `CREATE DATABASE ${quoteIdent(target)};\n\n`
+
+    let views: { create: string[]; drop: string[] } = { create: [], drop: [] }
+    if (includeSchema) {
+      const [types, sequences, viewParts, functions] = await Promise.all([
+        schema.typeDdl(pool),
+        schema.sequenceDdl(pool),
+        schema.viewDdl(pool),
+        schema.functionDdl(pool)
+      ])
+      views = viewParts
+
+      // Drop in reverse dependency order so re-running the dump is clean.
+      yield* section('Drop existing objects', [
+        ...views.drop,
+        ...tables.map((t) => `DROP TABLE IF EXISTS ${qualify(t)} CASCADE;`),
+        ...functions.drop,
+        ...sequences.drop,
+        ...types.drop
+      ])
+
+      yield* section('Extensions', await schema.extensionDdl(pool))
+      yield* section('Types', types.create)
+      yield* section('Functions', functions.create)
+      yield* section('Sequences', sequences.create)
+      for (const table of tables) {
+        yield* section(`Table: ${table}`, [await schema.tableDdl(pool, table)])
+      }
+      yield* section('Sequence ownership', await schema.sequenceOwnershipDdl(pool))
     }
-    return parts.join('\n')
+
+    for (const table of tables) {
+      if (includeSchema) yield `-- Data: ${table}\n`
+      yield* streamTableInserts(pool, table)
+      yield '\n'
+    }
+
+    if (includeSchema) {
+      const [indexes, foreignKeys, triggers, seqValues] = await Promise.all([
+        schema.indexDdl(pool),
+        schema.foreignKeyDdl(pool),
+        schema.triggerDdl(pool),
+        schema.sequenceValueDdl(pool)
+      ])
+      yield* section('Sequence values', seqValues)
+      yield* section('Indexes', indexes)
+      yield* section('Foreign keys', foreignKeys)
+      yield* section('Views', views.create)
+      yield* section('Triggers', triggers)
+    }
   }
 
   async getSchemaGraph(database?: string): Promise<SchemaGraph> {
@@ -500,6 +625,52 @@ function normalize(value: unknown): unknown {
   if (Buffer.isBuffer(value)) return value.toString('base64')
   if (value !== null && typeof value === 'object') return JSON.stringify(value)
   return value
+}
+
+/**
+ * Stream one table's rows as INSERT statements through a server-side cursor.
+ *
+ * A plain `SELECT *` makes pg buffer the entire table in the client before the
+ * first row can be written, so a big table has to be walked in batches instead.
+ * The client is destroyed rather than released if we stop early, since it would
+ * otherwise go back to the pool with the cursor's transaction still open.
+ */
+async function* streamTableInserts(pool: pg.Pool, table: string): AsyncGenerator<string> {
+  const qualified = `${quoteIdent('public')}.${quoteIdent(table)}`
+  const cursor = quoteIdent(`tabledock_dump_${table}`)
+  const client = await pool.connect()
+  let drained = false
+  try {
+    await client.query('BEGIN READ ONLY')
+    await client.query(`DECLARE ${cursor} NO SCROLL CURSOR FOR SELECT * FROM ${qualified}`)
+    const fetchNext = (): Promise<pg.QueryResult> =>
+      client.query(`FETCH FORWARD ${DUMP_BATCH_ROWS} FROM ${cursor}`)
+
+    let batch = await fetchNext()
+    const columns = batch.fields.map((f) => f.name)
+    const kinds = await columnKinds(
+      pool,
+      batch.fields.map((f) => f.dataTypeID)
+    )
+    async function* rows(): AsyncGenerator<unknown[]> {
+      while (batch.rows.length > 0) {
+        for (const row of batch.rows as Record<string, unknown>[]) {
+          yield columns.map((c) => row[c])
+        }
+        if (batch.rows.length < DUMP_BATCH_ROWS) return
+        batch = await fetchNext()
+      }
+    }
+    yield* insertChunks(qualified, columns, rows(), quoteIdent, (value, i) =>
+      pgLiteral(value, kinds[i] ?? 'other')
+    )
+
+    await client.query(`CLOSE ${cursor}`)
+    await client.query('COMMIT')
+    drained = true
+  } finally {
+    client.release(drained ? undefined : true)
+  }
 }
 
 /** Format a Postgres column's type with length/precision, e.g. varchar(255). */

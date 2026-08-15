@@ -1,5 +1,6 @@
 import Redis from 'ioredis'
 import { buildTls } from '../ssl'
+import { chunked } from '../dump'
 import type {
   ConnectionConfig,
   RedisDriverApi,
@@ -9,6 +10,14 @@ import type {
 } from '../types'
 
 const PAGE_SIZE = 200
+
+/** Elements per emitted command when dumping a list/set/zset/hash. */
+const DUMP_ELEMENTS = 500
+
+/** Quote a value as a double-quoted Redis command argument. */
+function q(s: string): string {
+  return `"${s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
+}
 
 export class RedisDriver implements RedisDriverApi {
   readonly kind = 'redis' as const
@@ -193,9 +202,16 @@ export class RedisDriver implements RedisDriverApi {
     return this.handle.call(cmd, ...rest)
   }
 
-  async dumpKeyspace(): Promise<string> {
-    const q = (s: string): string => `"${s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
-    const lines: string[] = []
+  dumpKeyspace(): AsyncIterable<string> {
+    return chunked(this.dumpCommands())
+  }
+
+  /**
+   * Emit the keyspace one command at a time. Collections are read and written in
+   * `DUMP_ELEMENTS` slices: RPUSH/SADD/ZADD/HSET all append, so a large key
+   * simply becomes several commands rather than one unbounded line.
+   */
+  private async *dumpCommands(): AsyncGenerator<string> {
     let cursor = '0'
     do {
       const [next, keys] = await this.handle.scan(cursor, 'COUNT', 500)
@@ -203,25 +219,39 @@ export class RedisDriver implements RedisDriverApi {
       for (const key of keys) {
         const type = await this.handle.type(key)
         if (type === 'string') {
-          lines.push(`SET ${q(key)} ${q((await this.handle.get(key)) ?? '')}`)
+          yield `SET ${q(key)} ${q((await this.handle.get(key)) ?? '')}\n`
         } else if (type === 'list') {
-          const vals = await this.handle.lrange(key, 0, -1)
-          if (vals.length) lines.push(`RPUSH ${q(key)} ${vals.map(q).join(' ')}`)
+          for (let i = 0; ; i += DUMP_ELEMENTS) {
+            const vals = await this.handle.lrange(key, i, i + DUMP_ELEMENTS - 1)
+            if (!vals.length) break
+            yield `RPUSH ${q(key)} ${vals.map(q).join(' ')}\n`
+          }
         } else if (type === 'set') {
-          const members = await this.handle.smembers(key)
-          if (members.length) lines.push(`SADD ${q(key)} ${members.map(q).join(' ')}`)
+          let sc = '0'
+          do {
+            const [nextSc, members] = await this.handle.sscan(key, sc, 'COUNT', DUMP_ELEMENTS)
+            sc = nextSc
+            if (members.length) yield `SADD ${q(key)} ${members.map(q).join(' ')}\n`
+          } while (sc !== '0')
         } else if (type === 'zset') {
-          const flat = await this.handle.zrange(key, 0, -1, 'WITHSCORES')
-          const pairs: string[] = []
-          for (let i = 0; i < flat.length; i += 2) pairs.push(`${flat[i + 1]} ${q(flat[i])}`)
-          if (pairs.length) lines.push(`ZADD ${q(key)} ${pairs.join(' ')}`)
+          for (let i = 0; ; i += DUMP_ELEMENTS) {
+            const flat = await this.handle.zrange(key, i, i + DUMP_ELEMENTS - 1, 'WITHSCORES')
+            if (!flat.length) break
+            const pairs: string[] = []
+            for (let j = 0; j < flat.length; j += 2) pairs.push(`${flat[j + 1]} ${q(flat[j])}`)
+            yield `ZADD ${q(key)} ${pairs.join(' ')}\n`
+          }
         } else if (type === 'hash') {
-          const hash = await this.handle.hgetall(key)
-          const fv = Object.entries(hash).map(([f, v]) => `${q(f)} ${q(v)}`)
-          if (fv.length) lines.push(`HSET ${q(key)} ${fv.join(' ')}`)
+          let hc = '0'
+          do {
+            const [nextHc, flat] = await this.handle.hscan(key, hc, 'COUNT', DUMP_ELEMENTS)
+            hc = nextHc
+            const fv: string[] = []
+            for (let j = 0; j < flat.length; j += 2) fv.push(`${q(flat[j])} ${q(flat[j + 1])}`)
+            if (fv.length) yield `HSET ${q(key)} ${fv.join(' ')}\n`
+          } while (hc !== '0')
         }
       }
     } while (cursor !== '0')
-    return lines.join('\n') + '\n'
   }
 }
