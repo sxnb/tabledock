@@ -1,0 +1,8 @@
+allowBuilds:
+  better-sqlite3: true
+  cpu-features: true
+  electron: true
+  electron-winstaller: true
+  esbuild: true
+  node-mac-haptics: true
+  ssh2: true
