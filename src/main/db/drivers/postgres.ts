@@ -607,7 +607,7 @@ export class PostgresDriver implements RelationalDriver {
 
   async runQuery(sql: string, database?: string): Promise<QueryResult> {
     const pool = await this.poolFor(database || this.currentDatabase)
-    const res = await pool.query(sql)
+    const res = this.config.readOnly ? await readOnlyQuery(pool, sql) : await pool.query(sql)
     const columns = res.fields?.map((f) => f.name) ?? []
     if (columns.length > 0) {
       return {
@@ -625,6 +625,32 @@ function normalize(value: unknown): unknown {
   if (Buffer.isBuffer(value)) return value.toString('base64')
   if (value !== null && typeof value === 'object') return JSON.stringify(value)
   return value
+}
+
+/**
+ * Run a statement for a read-only connection inside a READ ONLY transaction, so
+ * Postgres itself refuses any write — including ones a keyword check would miss,
+ * like a data-modifying CTE or a function that writes.
+ *
+ * The extended query protocol accepts a single statement only, so the SQL can't
+ * COMMIT and then carry on outside the transaction.
+ */
+async function readOnlyQuery(pool: pg.Pool, sql: string): Promise<pg.QueryResult> {
+  const client = await pool.connect()
+  let broken: Error | undefined
+  try {
+    await client.query('BEGIN READ ONLY')
+    // `queryMode` is supported by pg but missing from @types/pg.
+    return await client.query({ text: sql, queryMode: 'extended' } as pg.QueryConfig)
+  } finally {
+    try {
+      await client.query('ROLLBACK')
+    } catch (err) {
+      broken = err instanceof Error ? err : new Error(String(err))
+    }
+    // A client that couldn't roll back is destroyed rather than reused.
+    client.release(broken)
+  }
 }
 
 /**
