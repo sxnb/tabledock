@@ -34,8 +34,8 @@ npm run dev
 ```bash
 npm run build         # type-check + bundle
 npm run build:mac     # package a signed + notarized macOS .dmg (see below)
-npm run build:win     # package for Windows
-npm run build:linux   # package for Linux
+npm run build:win     # package for Windows — on Windows only (see Releasing)
+npm run build:linux   # package for Linux — on Linux only (see Releasing)
 ```
 
 ### Packaging for macOS
@@ -61,11 +61,19 @@ export APPLE_API_ISSUER=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 # export APPLE_ID=you@example.com
 # export APPLE_APP_SPECIFIC_PASSWORD=abcd-efgh-ijkl-mnop
 # export APPLE_TEAM_ID=XXXXXXXXXX
+# …or a notarytool keychain profile (xcrun notarytool store-credentials tabledock-notary …)
+# export APPLE_KEYCHAIN_PROFILE=tabledock-notary
 
 npm run build:mac
 ```
 
 electron-builder signs with the Developer ID cert (hardened runtime + the entitlements in `build/`) and notarizes the `.dmg`; the result opens with no Gatekeeper warning. Signing config lives in `electron-builder.yml`.
+
+### Releasing
+
+Run `/release` in Claude Code (optionally `/release minor` or `/release major`; the steps are in `.claude/skills/release/SKILL.md`). It bumps the version through a pull request, tags it, builds and notarizes the Mac app on your machine, and collects the Windows and Linux builds (x64 + arm64) from CI into a draft GitHub release for you to publish.
+
+Windows and Linux release builds come from `.github/workflows/release.yml`, which runs on native runners when a `v*` tag is pushed. The native modules (better-sqlite3, ssh2) can't be cross-compiled, so `build:win` / `build:linux` run on a Mac package macOS binaries, and SQLite fails in the result. `node scripts/check-native-modules.mjs <unpacked-app-dir> <platform> <arch>` checks a build for this.
 
 ### Quality
 
