@@ -16,8 +16,10 @@ asarUnpack:
   - resources/**
 win:
   executableName: tabledock
+# Windows and Linux ship one file per CPU (built by .github/workflows/release.yml),
+# so their names carry the arch to keep the x64 and arm64 files apart.
 nsis:
-  artifactName: ${name}-${version}-setup.${ext}
+  artifactName: ${name}-${version}-${arch}-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
@@ -58,5 +60,5 @@ linux:
   maintainer: colorcode@colorcode.ro
   category: Utility
 appImage:
-  artifactName: ${name}-${version}.${ext}
+  artifactName: ${name}-${version}-${arch}.${ext}
 npmRebuild: false
