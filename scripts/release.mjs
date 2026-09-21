@@ -183,9 +183,9 @@ try {
 
 if (parsed.html_url) {
   console.log(`\n✅  Draft release created: ${parsed.html_url}`)
-  console.log('\nNext steps:')
-  console.log('  1. Run `npm run build` to produce the signed + notarized DMG')
-  console.log('  2. Upload the .dmg from dist/ to the draft release')
+  console.log('\nNext steps (the release skill does 1 and 2):')
+  console.log('  1. The tag push builds Windows + Linux in CI and attaches them to the draft')
+  console.log('  2. Run `pnpm run build:mac` and upload the .dmg from dist/ to the draft')
   console.log('  3. Publish the release on GitHub')
 } else {
   console.error('❌  GitHub API error:')

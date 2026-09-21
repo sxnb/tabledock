@@ -1,0 +1,87 @@
+name: Release builds
+
+# Windows and Linux distributables, each built on its own OS and CPU: native
+# modules (better-sqlite3, ssh2) can't be cross-compiled, so a build made on a
+# Mac ships macOS binaries. The Mac build is made locally — signed and notarized —
+# by the release skill (.claude/skills/release).
+on:
+  push:
+    tags: ['v*']
+  # Changes to the build setup are proven on every runner before they merge.
+  pull_request:
+    paths:
+      - .github/workflows/release.yml
+      - electron-builder.yml
+      - pnpm-lock.yaml
+      - scripts/check-native-modules.mjs
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.target }}-${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+            target: win
+            platform: win32
+            arch: x64
+            unpacked: win-unpacked
+          - runner: windows-11-arm
+            target: win
+            platform: win32
+            arch: arm64
+            unpacked: win-arm64-unpacked
+          - runner: ubuntu-latest
+            target: linux
+            platform: linux
+            arch: x64
+            unpacked: linux-unpacked
+          - runner: ubuntu-24.04-arm
+            target: linux
+            platform: linux
+            arch: arm64
+            unpacked: linux-arm64-unpacked
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      # The postinstall step rebuilds the native modules for Electron on this runner.
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec electron-vite build
+      - run: pnpm exec electron-builder --${{ matrix.target }} --${{ matrix.arch }} --publish never
+      - run: node scripts/check-native-modules.mjs dist/${{ matrix.unpacked }} ${{ matrix.platform }} ${{ matrix.arch }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.target }}-${{ matrix.arch }}
+          path: |
+            dist/*.exe
+            dist/*.AppImage
+            dist/*.deb
+          if-no-files-found: error
+
+  # Attach the files to the draft release scripts/release.mjs created for the tag,
+  # once every build has succeeded.
+  upload:
+    needs: build
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+          merge-multiple: true
+      - run: gh release upload "$GITHUB_REF_NAME" artifacts/* --clobber --repo "$GITHUB_REPOSITORY"
+        env:
+          GH_TOKEN: ${{ github.token }}

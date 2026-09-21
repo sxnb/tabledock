@@ -42,5 +42,10 @@ export default defineConfig(
     files: ['test/seed/*.js'],
     languageOptions: { globals: { db: 'readonly' } }
   },
+  {
+    // Plain JavaScript has no syntax for return types.
+    files: ['**/*.{js,mjs,cjs}'],
+    rules: { '@typescript-eslint/explicit-function-return-type': 'off' }
+  },
   eslintConfigPrettier
 )
