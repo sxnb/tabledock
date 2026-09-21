@@ -46,7 +46,7 @@ Browse, query, edit, and visualize your databases — all from one minimalist wo
 - Passwords encrypted at rest via the OS keychain (Electron `safeStorage`) — never stored in plaintext.
 - Optional **SSL/TLS** with CA, client certificate, and key files.
 - **SSH tunneling** with password, private-key, or SSH-agent authentication (secrets encrypted alongside the connection).
-- **Read-only mode** — flag a connection to block every write (inline edits, add/delete row, import, dumps), enforced in the main process.
+- **Read-only mode** — flag a connection to block every write: inline edits, add/delete row, imports, and statements run in the SQL editor or Redis console. PostgreSQL, MySQL/MariaDB, and SQLite enforce it themselves (a read-only transaction, session, or file handle); SQL Server batches run in a transaction that is always rolled back, and Redis refuses commands it flags as writes.
 - Tag each connection with a **color** for at-a-glance identification (shown in the sidebar and as an accent bar atop the editor).
 - Open multiple connections at once, each in its own workspace with independent tabs.
 

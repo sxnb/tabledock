@@ -454,8 +454,13 @@ export class MySqlDriver implements RelationalDriver {
 
   async runQuery(sql: string, database?: string): Promise<QueryResult> {
     const conn = await this.db.getConnection()
+    const readOnly = Boolean(this.config.readOnly)
     try {
       if (database) await conn.query(`USE ${quoteIdent(database)}`)
+      // The session's access mode rather than a READ ONLY transaction: DDL commits
+      // an open transaction implicitly, then runs under the session's mode. It is
+      // set on every call in case a statement switched it back.
+      if (readOnly) await conn.query('SET SESSION TRANSACTION READ ONLY')
       const [result, fields] = await conn.query(sql)
       if (Array.isArray(result)) {
         const rows = result as mysql.RowDataPacket[]
@@ -469,7 +474,19 @@ export class MySqlDriver implements RelationalDriver {
       const header = result as mysql.ResultSetHeader
       return { columns: [], rows: [], rowCount: 0, affectedRows: header.affectedRows }
     } finally {
-      conn.release()
+      let reusable = true
+      if (readOnly) {
+        // One statement runs per call, and rolling back ends any transaction it
+        // opened (START TRANSACTION READ WRITE), so none carries over to the next.
+        // A connection that couldn't roll back is destroyed rather than reused.
+        try {
+          await conn.query('ROLLBACK')
+        } catch {
+          reusable = false
+        }
+      }
+      if (reusable) conn.release()
+      else conn.destroy()
     }
   }
 }

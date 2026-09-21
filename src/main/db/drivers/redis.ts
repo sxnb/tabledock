@@ -19,9 +19,29 @@ function q(s: string): string {
   return `"${s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
 }
 
+/** Commands that run a script, which may or may not write. */
+const SCRIPT_COMMANDS = new Set(['eval', 'evalsha', 'fcall'])
+
+/** A command's flags (`write`, `readonly`, …) as reported by COMMAND INFO. */
+interface CommandInfo {
+  flags: string[]
+  /** Flags per subcommand, keyed `config|set`; Redis 7+ reports these. */
+  subcommands: Map<string, string[]>
+}
+
+/** Parse one COMMAND INFO entry: [name, arity, flags, …, subcommands at index 9]. */
+function parseCommandInfo(entry: unknown[]): CommandInfo {
+  const subcommands = new Map<string, string[]>()
+  for (const sub of (entry[9] as unknown[][] | undefined) ?? []) {
+    subcommands.set(String(sub[0]).toLowerCase(), (sub[2] as unknown[]).map(String))
+  }
+  return { flags: (entry[2] as unknown[]).map(String), subcommands }
+}
+
 export class RedisDriver implements RedisDriverApi {
   readonly kind = 'redis' as const
   private client: Redis | null = null
+  private commandInfoCache = new Map<string, CommandInfo | null>()
 
   constructor(private readonly config: ConnectionConfig) {}
 
@@ -197,9 +217,45 @@ export class RedisDriver implements RedisDriverApi {
 
   async runCommand(args: string[]): Promise<unknown> {
     if (args.length === 0) throw new Error('Empty command')
+    if (this.config.readOnly) await this.assertReadOnly(args)
     const [cmd, ...rest] = args
     // ioredis exposes arbitrary commands via call().
     return this.handle.call(cmd, ...rest)
+  }
+
+  /**
+   * Refuse a command that writes, going by the flags Redis itself reports for it.
+   * Scripts carry no such flag — the script decides — so EVAL, EVALSHA, and FCALL
+   * are refused as well; their _RO variants, which Redis holds to read-only, run.
+   */
+  private async assertReadOnly(args: string[]): Promise<void> {
+    const name = args[0].toLowerCase()
+    if (SCRIPT_COMMANDS.has(name)) {
+      throw new Error(`Connection is read-only: use ${name.toUpperCase()}_RO to run a script`)
+    }
+    const info = await this.commandInfo(name)
+    if (!info) throw new Error(`Connection is read-only: unknown command '${args[0]}'`)
+    const sub = args[1] ? info.subcommands.get(`${name}|${args[1].toLowerCase()}`) : undefined
+    if ((sub ?? info.flags).includes('write')) {
+      const label = sub ? `${args[0]} ${args[1]}` : args[0]
+      throw new Error(`Connection is read-only: ${label.toUpperCase()} writes data`)
+    }
+  }
+
+  /** COMMAND INFO for a command, cached for the session; null when Redis doesn't know it. */
+  private async commandInfo(name: string): Promise<CommandInfo | null> {
+    if (!this.commandInfoCache.has(name)) {
+      let reply: unknown
+      try {
+        reply = await this.handle.call('COMMAND', 'INFO', name)
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : String(err)
+        throw new Error(`Connection is read-only, and commands can't be checked: ${reason}`)
+      }
+      const [entry] = reply as (unknown[] | null)[]
+      this.commandInfoCache.set(name, entry ? parseCommandInfo(entry) : null)
+    }
+    return this.commandInfoCache.get(name) ?? null
   }
 
   dumpKeyspace(): AsyncIterable<string> {

@@ -41,6 +41,55 @@ function normalize(value: unknown): unknown {
   return value
 }
 
+/** Comments, string literals, and quoted identifiers, matched left to right. */
+const TSQL_NOISE = /--[^\n]*|\/\*[\s\S]*?\*\/|'(?:[^']|'')*'|\[(?:[^\]]|\]\])*\]|"(?:[^"]|"")*"/g
+
+/** Statements refused outright on a read-only connection. */
+const TSQL_WRITES =
+  /\b(INSERT|UPDATE|DELETE|MERGE|TRUNCATE|DROP|ALTER|CREATE|GRANT|REVOKE|DENY|COMMIT|ROLLBACK)\b/i
+
+/**
+ * The write or transaction-control keyword a read-only connection refuses to
+ * run, or null. Keywords inside comments, strings, and quoted identifiers don't
+ * count. Where T-SQL and the pattern disagree (nested block comments, an
+ * unterminated string), the pattern sees more code, so it errs towards refusing.
+ */
+export function readOnlyViolation(batch: string): string | null {
+  const match = TSQL_WRITES.exec(batch.replace(TSQL_NOISE, ' '))
+  return match ? match[1].toUpperCase() : null
+}
+
+/**
+ * SQL Server has no read-only transaction mode, so a read-only connection guards
+ * a batch twice. Batches that plainly write, commit, or roll back are refused
+ * before they reach the server, so a stray DELETE doesn't lock a table only to
+ * be undone. Everything else runs in a transaction that is always rolled back,
+ * which catches what a keyword check can't see: SELECT … INTO, procedures,
+ * dynamic SQL. XACT_ABORT makes an error roll back and end the whole batch, so no
+ * later statement can run outside the transaction.
+ */
+async function readOnlyQuery(
+  pool: sql.ConnectionPool,
+  batch: string
+): Promise<sql.IResult<Record<string, unknown>>> {
+  const keyword = readOnlyViolation(batch)
+  if (keyword) throw new Error(`Connection is read-only: ${keyword} is not allowed`)
+
+  const tx = new sql.Transaction(pool)
+  await tx.begin()
+  try {
+    await new sql.Request(tx).batch('SET XACT_ABORT ON')
+    const res = await new sql.Request(tx).query<Record<string, unknown>>(batch)
+    if (!res.recordset && res.rowsAffected.some((n) => n > 0)) {
+      throw new Error('Connection is read-only: the changes were rolled back')
+    }
+    return res
+  } finally {
+    // Rejects when XACT_ABORT has already rolled back, which is fine.
+    await tx.rollback().catch(() => undefined)
+  }
+}
+
 /** Microsoft SQL Server driver (T-SQL via the `mssql`/tedious package). */
 export class SqlServerDriver implements RelationalDriver {
   readonly kind = 'mssql' as const
@@ -441,7 +490,9 @@ export class SqlServerDriver implements RelationalDriver {
 
   async runQuery(sql_: string, database?: string): Promise<QueryResult> {
     const pool = await this.poolFor(database || this.currentDatabase)
-    const res = await pool.request().query<Record<string, unknown>>(sql_)
+    const res = this.config.readOnly
+      ? await readOnlyQuery(pool, sql_)
+      : await pool.request().query<Record<string, unknown>>(sql_)
     if (res.recordset) {
       const columns = orderedColumns(res.recordset)
       return {

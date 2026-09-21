@@ -37,6 +37,12 @@ export class SqliteDriver implements RelationalDriver {
 
   async connect(): Promise<void> {
     if (!this.config.filePath) throw new Error('No SQLite file path configured')
+    if (this.config.readOnly) {
+      // SQLite then refuses every write itself. The journal mode is left alone
+      // too: switching it to WAL rewrites the database file's header.
+      this.db = new Database(this.config.filePath, { readonly: true })
+      return
+    }
     this.db = new Database(this.config.filePath)
     this.db.pragma('journal_mode = WAL')
   }
